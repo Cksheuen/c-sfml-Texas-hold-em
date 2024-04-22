@@ -12,7 +12,7 @@ bool isPlaying = true;
 int main() {
     RenderWindow window(VideoMode(1000, 800), "SFML Game Project");
 
-    UseCard shader(window, 13, CardType_Spade, 100, 100, 200, 300);
+    UseCard shader(window, 5, CardType_Spade, 100, 100, 100, 200);
 
     sf::RectangleShape button(sf::Vector2f(50, 50));
     button.setPosition(500, 100);

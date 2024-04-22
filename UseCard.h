@@ -28,6 +28,7 @@ class UseCard {
 private:
 	// 扑克点数
 	int number;
+	bool check = false;
 	enum CardType cardType;
 	UseShader<RectangleShape>* shader;
 	UseShader<Sprite>**cardTypeSign;
@@ -51,11 +52,14 @@ private:
 
 public:
 	UseCard(sf::RenderWindow& windowSet, int numberSet, enum CardType cardTypeSet, float xSet, float ySet, float widthSet, float heightSet)
-		: window(windowSet), number(numberSet), cardType(cardTypeSet), x(xSet), y(ySet), width(widthSet), height(heightSet), Cardshape(sf::Vector2f(width, height)), signWidth(width / 5){
-		Cardshape.setPosition(x, y);
+		: window(windowSet), number(numberSet), cardType(cardTypeSet), x(xSet), y(ySet), width(widthSet), height(heightSet), Cardshape(sf::Vector2f(window.getSize().x, window.getSize().y)), signWidth(width / 5) {
+		Cardshape.setPosition(0., 0.);
+		//Cardshape.setPosition(x + width / 2, y + height / 2);
+		//Cardshape.setOrigin(width / 2, height / 2);
 		shader = new UseShader<RectangleShape>(windowSet, clock, Cardshape, "shaders/card/card.vert", "shaders/card/card.frag");
 		shader->setShapeSize(width, height);
 		shader->initMidTexture();
+		shader->setGlobalPosition(x, y);
 
 		cardTypeSign = NULL;
 
@@ -174,12 +178,18 @@ public:
 		shader->useShader();
 		if (cardTypeSign != NULL)
 			for (int i = 0; i < number; i++) cardTypeSign[i]->useShader();
+		//Cardshape.setRotation(clock.getElapsedTime().asSeconds());
+		if (clock.getElapsedTime().asSeconds() > 1 && !check) {
+			check = true;
+			shader->saveImg();
+		}
 		window.display();
 	}
 	void disappearCard() {
 		disappearClock.restart();
 		shader->disappearShader();
-		for (int i = 0; i < number; i++) cardTypeSign[i]->disappearShader();
+		if (cardTypeSign != NULL)
+			for (int i = 0; i < number; i++) cardTypeSign[i]->disappearShader();
 	}
 
 };
