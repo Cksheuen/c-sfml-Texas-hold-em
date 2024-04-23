@@ -11,7 +11,6 @@ private:
     sf::RenderWindow& window;
     Drawable& shape;
     Clock clock, disappearClock;
-    Vector2f globalPosition;
     bool disappear = false;
     float x, y, width, height;
     void setGlobalPosition(Drawable& drawable) {
@@ -94,12 +93,10 @@ public:
             return;
         }
         states.shader = &shader;
-        //setGlobalPosition(shape);
+        setGlobalPosition(shape);
         shader.setUniform("shape_size", sf::Vector2f(width, height));
         shader.setUniform("disappear_time", 0.0f);
         shader.setUniform("texture", sf::Shader::CurrentTexture);
-
-
     }
     void useShader() {
         shader.setUniform("time", clock.getElapsedTime().asSeconds());
@@ -113,8 +110,10 @@ public:
         
         window.draw(shape, states);
     }
-    void setShapeSize(float width, float height) {
-        shader.setUniform("shape_size", sf::Vector2f(width, height));
+    void setShapeSize(float widthSet, float heightSet) {
+        shader.setUniform("shape_size", sf::Vector2f(widthSet, heightSet));
+        width = widthSet;
+        height = heightSet;
         //setGlobalPosition(shape);
     }
     void setTextTexture(sf::RenderTexture& texture) {
@@ -126,9 +125,6 @@ public:
     void initMidTexture() {
 		shader.setUniform("if_mid_texture", false);
 	}
-    void setGlobalPosition(float x, float y) {
-        shader.setUniform("global_pos", Vector2f(x, y));
-	}
     void setMidTexture(sf::RenderTexture& texture) {
         shader.setUniform("if_mid_texture", true);
         shader.setUniform("mid_texture", texture.getTexture());
@@ -138,18 +134,27 @@ public:
         disappearClock.restart();
         disappear = true;
     }
-    void saveImg() {
+    Image getImg() {
         sf::RenderTexture renderTexture;
         renderTexture.create(window.getSize().x, window.getSize().y);
-
-        sf::Shader shader;
-        // 加载你的GLSL着色器
 
         renderTexture.clear();
         renderTexture.draw(shape, states);
         renderTexture.display();
 
         sf::Image image = renderTexture.getTexture().copyToImage();
-        image.saveToFile("output.png");
+        return image;
+    }
+    void saveImg() {
+        sf::RenderTexture renderTexture;
+        renderTexture.create(window.getSize().x, window.getSize().y);
+
+        renderTexture.clear();
+        renderTexture.draw(shape, states);
+        renderTexture.display();
+
+        sf::Image image = renderTexture.getTexture().copyToImage();
+        image.saveToFile("result.png");
+        cout << "save image" << endl;
     }
 };

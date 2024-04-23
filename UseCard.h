@@ -33,14 +33,16 @@ private:
 	UseShader<RectangleShape>* shader;
 	UseShader<Sprite>**cardTypeSign;
 	RenderWindow& window;
-	float x, y, width, height, signWidth;
+	Sprite completeCard;
+	float  width, height, signWidth;
 	sf::RectangleShape Cardshape;
 	sf::Sprite* cardTypeShape;
 	Clock clock, disappearClock;
-	Texture cardTypeTexture;
+	Texture cardTypeTexture, comTexture;
 	Font font, mid_font;
 	Text text, mid_text;
-	RenderTexture renderTexture, mid_renderTexture;
+	RenderTexture renderTexture, mid_renderTexture, cardRenderTexture;
+
 
 	int min(int x, int y) {
 		return x < y ? x : y;
@@ -51,15 +53,13 @@ private:
 
 
 public:
+	float x, y, angle;
 	UseCard(sf::RenderWindow& windowSet, int numberSet, enum CardType cardTypeSet, float xSet, float ySet, float widthSet, float heightSet)
-		: window(windowSet), number(numberSet), cardType(cardTypeSet), x(xSet), y(ySet), width(widthSet), height(heightSet), Cardshape(sf::Vector2f(window.getSize().x, window.getSize().y)), signWidth(width / 5) {
-		Cardshape.setPosition(0., 0.);
-		//Cardshape.setPosition(x + width / 2, y + height / 2);
-		//Cardshape.setOrigin(width / 2, height / 2);
+		: window(windowSet), number(numberSet), cardType(cardTypeSet), x(xSet), y(ySet), width(widthSet), height(heightSet), Cardshape(sf::Vector2f(width, height)), signWidth(width / 4){
+		Cardshape.setPosition(x, y);
 		shader = new UseShader<RectangleShape>(windowSet, clock, Cardshape, "shaders/card/card.vert", "shaders/card/card.frag");
 		shader->setShapeSize(width, height);
 		shader->initMidTexture();
-		shader->setGlobalPosition(x, y);
 
 		cardTypeSign = NULL;
 
@@ -80,6 +80,22 @@ public:
 		shader->setTextTexture(renderTexture);
 
 		if (number >= 1 && number <= 10) {
+
+			//shader->saveImg();
+
+			Image image = shader->getImg();
+			Texture cardTexture;
+			Sprite cardSprite;
+
+			cardTexture.loadFromImage(image);
+			cardSprite.setTexture(cardTexture);
+
+			cardSprite.setPosition(-x, -y);
+
+			cardRenderTexture.create(width, height);
+			cardRenderTexture.clear(Color::Transparent);
+			cardRenderTexture.draw(cardSprite);
+
 			string cardTypeSignPath = "";
 			cardTypeSignPath = "shaders/CardTypeSign/" + cardTypeMap[cardTypeSet];
 			if (!cardTypeTexture.loadFromFile("assets/CardTypeSign.png")) {
@@ -121,30 +137,29 @@ public:
 				break;
 			}
 
-			cardTypeSign = new UseShader<Sprite>*[number];
-			cardTypeShape = new Sprite[number];
+			Sprite signSprite;
+			signSprite.setTexture(cardTypeTexture);
+			signSprite.setTextureRect(IntRect(startX, startY, endX - startX, endY - startY));
+			signSprite.setScale(signWidth / signSprite.getLocalBounds().width, signWidth / signSprite.getLocalBounds().height);
+
 			for (int i = 0; i < number; i++) {
-				cardTypeShape[i].setTexture(cardTypeTexture);
-				cardTypeShape[i].setTextureRect(IntRect(startX, startY, endX, endY));
-				cardTypeShape[i].setScale(signWidth / cardTypeShape[i].getLocalBounds().width, signWidth / cardTypeShape[i].getLocalBounds().height);
-			}
-			float shapeWidth = cardTypeShape[0].getGlobalBounds().width;
-			float shapeHeight = cardTypeShape[0].getGlobalBounds().height;
-			for (int i = 0; i < number; i++) {
-				
 				if (number <= 3) {
-					cardTypeShape[i].setPosition(x + width / 2 - shapeWidth / 2, y + height / (number + 1) * (i + 1) - shapeHeight / 2);
+					signSprite.setPosition(width / 2 - signWidth / 2, height / (number + 1) * (i + 1) - signWidth / 2);
 				}
 				else {
 					int outRow = number / 3 + 1;
 					int inRow = number - outRow * 2;
-					if (inRow == 0) cardTypeShape[i].setPosition(x + width / 3 * (i % 2 + 1) - shapeWidth / 2, y + height / (number / 2 + 1) * (i / 2 + 1) - shapeHeight / 2);
-					else if (i + 1 > outRow && i + 1 <= outRow + inRow) cardTypeShape[i].setPosition(x + width / 2 - shapeWidth / 2, y + height / (inRow + 1) * (i + 1 - outRow) - shapeHeight / 2);
-					else cardTypeShape[i].setPosition(x + width / 3 * (max(i - inRow, 0) / outRow + 1) - shapeWidth / 2, y + height / (outRow + 1) * min(i + 1, number - i) - shapeHeight / 2);
+					if (inRow == 0) signSprite.setPosition(width / 3 * (i % 2 + 1) - signWidth / 2, height / (number / 2 + 1) * (i / 2 + 1) - signWidth / 2);
+					else if (i + 1 > outRow && i + 1 <= outRow + inRow) signSprite.setPosition(width / 2 - signWidth / 2, height / (inRow + 1) * (i + 1 - outRow) - signWidth / 2);
+					else signSprite.setPosition(width / 3 * (max(i - inRow, 0) / outRow + 1) - signWidth / 2, height / (outRow + 1) * min(i + 1, number - i) - signWidth / 2);
+
 				}
-				cardTypeSign[i] = new UseShader<Sprite>(windowSet, clock, cardTypeShape[i], "shaders/CardTypeSign/Card.vert", "shaders/CardTypeSign/Card.frag");
-				cardTypeSign[i]->setShapeSize(shapeWidth, shapeHeight);
+				cardRenderTexture.draw(signSprite);
 			}
+
+			cardRenderTexture.display();
+			completeCard.setTexture(cardRenderTexture.getTexture());
+
 		}
 		else {
 			if (!mid_font.loadFromFile("assets/XianzhouSeal-Regular.ttf")) {
@@ -166,7 +181,15 @@ public:
 			mid_renderTexture.display();
 
 			shader->setMidTexture(mid_renderTexture);
+
+			Image image = shader->getImg();
+			comTexture.loadFromImage(image);
+
+			completeCard.setTexture(comTexture);
+			completeCard.setTextureRect(sf::IntRect(x, y, width, height));
 		}
+
+		completeCard.setOrigin(width / 2, height / 2);
 	}
 	void setCardSize(float widthSet, float heightSet) {
 		width = widthSet;
@@ -175,21 +198,40 @@ public:
 		shader->setShapeSize(width, height);
 	}
 	void drawCard() {
-		shader->useShader();
+		/*shader->useShader();
 		if (cardTypeSign != NULL)
 			for (int i = 0; i < number; i++) cardTypeSign[i]->useShader();
-		//Cardshape.setRotation(clock.getElapsedTime().asSeconds());
-		if (clock.getElapsedTime().asSeconds() > 1 && !check) {
-			check = true;
-			shader->saveImg();
-		}
-		window.display();
+		*/
+		completeCard.setPosition(x, y);
+		completeCard.setRotation(angle);
+		window.draw(completeCard);
+		//window.display();
 	}
 	void disappearCard() {
 		disappearClock.restart();
 		shader->disappearShader();
-		if (cardTypeSign != NULL)
-			for (int i = 0; i < number; i++) cardTypeSign[i]->disappearShader();
+		for (int i = 0; i < number; i++) cardTypeSign[i]->disappearShader();
+	}
+
+	void saveAsPng(Sprite sprite) {
+
+		sf::RenderTexture renderTexture;
+		renderTexture.create(sprite.getGlobalBounds().width, sprite.getGlobalBounds().height);
+		renderTexture.clear(sf::Color::Transparent);
+		renderTexture.draw(sprite);
+		renderTexture.display();
+
+		sf::Image image = renderTexture.getTexture().copyToImage();
+		image.saveToFile("output.png");
+		cout << "save as png" << endl;
+	}
+	void setRotation(float angleSet) {
+		angle = angleSet;
+		//cout << "angle: " << angle << endl;
+	}
+	void setPos(float xSet, float ySet) {
+		x = xSet;
+		y = ySet;
 	}
 
 };

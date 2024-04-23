@@ -69,24 +69,10 @@ vec3 rgb(int r, int g, int b) {
 	return vec3(r / 255., g / 255., b / 255.);
 }
 
-mat2 rotate2d(float _angle){
-    return mat2(cos(_angle),-sin(_angle),
-                sin(_angle),cos(_angle));
-}
-
 
 void main()
 {
     vec2 uv = (gl_FragCoord.xy - global_pos) / shape_size;
-
-    uv -= 0.5;
-    uv = rotate2d(3.14 / 180. * 0.) * uv;
-    uv += 0.5;
-
-    /*if (uv.x < 0. || uv.x > 1. || uv.y < 0. || uv.y > 1.) {
-        gl_FragColor = vec4(0., 0., 0., 0.);
-		return;
-    }*/
 
     vec2 o, n;
     float pattern_ans = pattern(uv, o, n);
@@ -119,21 +105,18 @@ void main()
     
 	if (edge <= .5) gl_FragColor = vec4(rgb(63, 78, 164) * .6, 1.);
 
+    
 
     vec2 edge_vec = edge_to_border * shape_size * 2.;
     edge_vec.y *= y_to_x;
 
     float signWidth = shape_size.x / 5.;
-    dx = min(gl_FragCoord.x - global_pos.x - shape_size.x / 2. - edge_vec.x, global_pos.x + shape_size.x * 1.5 - edge_vec.x - gl_FragCoord.x);
-    dy = signWidth - min(gl_FragCoord.y - global_pos.y - shape_size.x / 2. - edge_vec.y, global_pos.y + shape_size.y * 1.5 - edge_vec.y - gl_FragCoord.y);
+    dx = min(gl_FragCoord.x - global_pos.x - edge_vec.x, global_pos.x + shape_size.x - edge_vec.x - gl_FragCoord.x);
+    dy = signWidth - min(gl_FragCoord.y - global_pos.y - edge_vec.y, global_pos.y + shape_size.y - edge_vec.y - gl_FragCoord.y);
 
-    vec2 sign_uv = vec2(dx, dy) / signWidth;
-    sign_uv -= 0.5;
-    sign_uv = rotate2d(3.14 / 180. * time * 10.) * sign_uv;
-    sign_uv += 0.5;
 
     if ( dx <= signWidth && dx >= 0. && dy <=signWidth && dy >= 0. && abs(uv.x - uv.y) > .5) {
-        vec4 text_color = texture(text_texture, sign_uv);
+        vec4 text_color = texture(text_texture, vec2(dx / signWidth, dy / signWidth));
         //if (text_color != vec4(0., 0., 0., 0.)) 
         if (text_color.z > 0.)
         gl_FragColor = vec4(rgb(63, 78, 164) * .4, 1.);
@@ -143,14 +126,8 @@ void main()
         float ratio = 2.;
         dx = gl_FragCoord.x - global_pos.x - (shape_size.x - shape_size.x / ratio) / 1.7;
         dy = gl_FragCoord.y - global_pos.y - (shape_size.y - shape_size.x / ratio) / 2.;
-
-        sign_uv = vec2(dx, dy) / shape_size.x;
-        sign_uv -= 0.5;
-        sign_uv = rotate2d(3.14 / 180. *0.) * sign_uv;
-        sign_uv += 0.5;
-
-        if (sign_uv.x > 0. && sign_uv.x <= 1. && sign_uv.y > 0. && sign_uv.y <= 1.) {
-            vec4 mid_color = texture(mid_texture, sign_uv);
+        if (dx <= shape_size.x / ratio && dy <= shape_size.x / ratio && dx > 0. && dy > 0.) {
+            vec4 mid_color = texture(mid_texture, vec2(dx / (shape_size.x / ratio), dy / (shape_size.x / ratio)));
 			if (mid_color.a > 0.) 
             gl_FragColor = vec4(rgb(63, 78, 164) * .4, 1.);
             //gl_FragColor = mid_color;
