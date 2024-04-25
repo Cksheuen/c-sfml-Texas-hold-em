@@ -68,7 +68,7 @@ void main()
 {
     vec2 uv = gl_FragCoord.xy  / shape_size;
 
-    gl_FragColor = vec4(vec3(uv.x + uv.y), 1.0);
+    gl_FragColor = vec4(vec3(time), 1.0);
     
 
 }
