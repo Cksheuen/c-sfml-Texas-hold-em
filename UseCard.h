@@ -42,6 +42,7 @@ private:
 	Font font, mid_font;
 	Text text, mid_text;
 	RenderTexture renderTexture, mid_renderTexture, cardRenderTexture;
+	FloatRect originalBounds;
 
 
 	int min(int x, int y) {
@@ -204,6 +205,7 @@ public:
 		*/
 		completeCard.setPosition(x, y);
 		completeCard.setRotation(angle);
+		originalBounds = completeCard.getGlobalBounds();
 		window.draw(completeCard);
 		//window.display();
 	}
@@ -232,6 +234,22 @@ public:
 	void setPos(float xSet, float ySet) {
 		x = xSet;
 		y = ySet;
+	}
+
+	bool Hover() {
+		Vector2i mousePos = Mouse::getPosition(window);
+
+
+		if (originalBounds.contains(mousePos.x, mousePos.y)) {
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
+
+	void scale(float x, float y) {
+		completeCard.setScale(x, y);
 	}
 
 };
