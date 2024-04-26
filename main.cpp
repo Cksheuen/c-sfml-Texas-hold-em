@@ -11,9 +11,6 @@ using namespace sf;
 const int WINDOW_WIDTH = 1000;
 const int WINDOW_HEIGHT = 800;
 
-Shader bg_shader;
-RenderStates bg_states;
-
 void Input(RenderWindow& window, sf::RectangleShape& button);
 
 bool isPlaying = true;
@@ -34,20 +31,11 @@ float step(float edge, float x) {
     return x < edge ? 0.0 : 1.0;
 }
 
-void drawBg(Clock clock, RenderWindow window, RectangleShape bg_shape) {
-    while (!init)
-    {
-        bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
-        window.draw(bg_shape, bg_states);
-        window.display();
-        this_thread::yield();
-    }
-
-}
-
 int main() {
     RenderWindow window(VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "SFML Game Project");
     Clock clock;
+    Shader bg_shader;
+    RenderStates bg_states;
 
     RectangleShape bg_shape(Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT));
     bg_shape.setPosition(0, 0);
@@ -66,6 +54,17 @@ int main() {
     bg_states.shader = &bg_shader;
 
     bg_shader.setUniform("shape_size", sf::Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT));
+
+    cout << WINDOW_WIDTH << " " << WINDOW_HEIGHT << endl;
+
+    clock.restart();
+
+    while (true)
+    {
+        bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
+        window.draw(bg_shape, bg_states);
+        window.display();
+    }return 0;
 
 
     UseCard* cards[52];
