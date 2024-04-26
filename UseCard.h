@@ -55,18 +55,17 @@ private:
 
 public:
 	float x, y, angle;
-	UseCard(sf::RenderWindow& windowSet, int numberSet, enum CardType cardTypeSet, float xSet, float ySet, float widthSet, float heightSet)
-		: window(windowSet), number(numberSet), cardType(cardTypeSet), x(xSet), y(ySet), width(widthSet), height(heightSet), Cardshape(sf::Vector2f(width, height)), signWidth(width / 4){
+	UseCard(sf::RenderWindow& windowSet, int numberSet, enum CardType cardTypeSet, float xSet, float ySet,
+		float widthSet, float heightSet, Font fontSet)
+		: window(windowSet), number(numberSet), cardType(cardTypeSet), x(xSet), y(ySet),
+		width(widthSet), height(heightSet), Cardshape(sf::Vector2f(width, height)), signWidth(width / 4),
+		font(fontSet){
 		Cardshape.setPosition(x, y);
 		shader = new UseShader<RectangleShape>(windowSet, clock, Cardshape, "shaders/card/card.vert", "shaders/card/card.frag");
 		shader->setShapeSize(width, height);
 		shader->initMidTexture();
 
 		cardTypeSign = NULL;
-
-		if (!font.loadFromFile("assets/TeyvatBlack-Regular.otf")) {
-			cout << "Load TeyvatBlack-Regular.ttf failed!" << endl;
-		} else cout << "Load TeyvatBlack-Regular.ttf successfully!" << endl;
 
 		renderTexture.create(signWidth, signWidth);
 
@@ -102,7 +101,6 @@ public:
 			if (!cardTypeTexture.loadFromFile("assets/CardTypeSign.png")) {
 				cout << "Load CardTypeSign.png failed!" << endl;
 			}
-			else cout << "Load CardTypeSign.png successfully!" << endl;
 			cardTypeTexture.setRepeated(false);
 
 			int rectWidth = cardTypeTexture.getSize().x / 2;
@@ -166,7 +164,6 @@ public:
 			if (!mid_font.loadFromFile("assets/XianzhouSeal-Regular.ttf")) {
 				cout << "Load XianzhouSeal-Regular.ttf failed!" << endl;
 			}
-			else cout << "Load XianzhouSeal-Regular.ttf successfully!" << endl;
 
 			int midWidth = width / 2;
 

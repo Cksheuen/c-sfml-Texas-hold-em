@@ -1,5 +1,7 @@
 uniform vec2 shape_size;
 uniform float time;
+uniform float percent;
+uniform int init_complete;
 
 #define PI 3.14159265359
 #define RADIUS 0.3
@@ -27,7 +29,7 @@ float noise (in vec2 st) {
             (d - b) * u.x * u.y;
 }
 
-#define OCTAVES 10
+#define OCTAVES 20
 float fbm (in vec2 st) {
     // Initial values
     float value = 0.0;
@@ -49,17 +51,6 @@ float slow(float x, float a) {
   } else {
     return 1. - pow(2. * (1. - x), a) / 2.;
   }
-}
-
-float pattern( in vec2 p, out vec2 q, out vec2 r )
-{
-    q.x = fbm( p + vec2(0.0,0.0) );
-    q.y = fbm( p + vec2(5.2,1.3) );
-
-    r.x = fbm( p + 4.0*q + vec2(1.7,9.2) );
-    r.y = fbm( p + 4.0*q + vec2(8.3,2.8) );
-
-    return fbm( p + 4.0*r );
 }
 
 vec3 rgb(int r, int g, int b) {
@@ -114,21 +105,8 @@ vec3 cal_turntable(vec2 uv, float theta_noise, float rotate_speed, float len, fl
     return vec3(-1.);
 }
 
-void main()
-{
-    /*if (gl_FragCoord.x > 0. && gl_FragCoord.x < shape_size.x / 2. || gl_FragCoord.y > 0.&& gl_FragCoord.y < shape_size.y / 2.) {
-        gl_FragColor = vec4(0., 0., 0., 1.);
-		return;
-	}*/
-    vec2 uv = gl_FragCoord.xy  / shape_size;
-    uv.x *= shape_size.x / shape_size.y;
-    uv.x += (1. - shape_size.x / shape_size.y) / 2.;
-
-    vec2 center = vec2(.5, .5);
-    vec2 p = uv - center;
+vec3 loading(vec2 uv, vec2 center, vec2 p, float len, float noise) {
     float a = atan(p.y, p.x);
-    float len = length(p);
-    float noise = fbm(uv + fbm(uv + fbm(uv * 5. + time)));
     a = mod(a, PI * 2.);
     float theta_noise = 1. - fbm(vec2(a / PI, len / RADIUS) * 5. + 1.) * .02 + sin(time) * (1. - smoothstep(0., 1., time)) * .25;
     float rotate_speed = time / 2.;
@@ -202,8 +180,67 @@ void main()
                 color = vec3(1.);
             }
         }
+    } else if (len < RADIUS * 1.3) {
+        if (a / PI / 2. < percent) color = rgb(108, 78, 54);
     }
+    return color;
+}
+
+vec2 fbm2( vec2 p )
+{
+    return vec2( fbm(p+vec2(1.0)), fbm(p+vec2(6.2)) );
+}
+
+float func( vec2 q, out vec2 o, out vec2 n )
+{
+    q += 0.05*sin(vec2(0.11,0.13)*time + length( q )*4.0);
     
+    q *= 0.7 + 0.2*cos(0.05*time);
+
+    o = 0.5 + 0.5*fbm2( q );
     
-    gl_FragColor = vec4(color * noise, 1.0);
+    o += 0.02*sin(vec2(0.13,0.11)*time*length( o ));
+
+    n = fbm2( 4.0*o );
+
+    vec2 p = q + 2.0*n + 1.0;
+
+    float f = 0.5 + 0.5*fbm( 2.0*p );
+
+    f = mix( f, f*f*f*3.5, f*abs(n.x) );
+
+    f *= 1.0-0.5*pow( 0.5+0.5*sin(8.0*p.x)*sin(8.0*p.y), 8.0 );
+
+    return f;
+}
+
+void main()
+{
+    vec2 uv = gl_FragCoord.xy  / shape_size;
+    uv.x *= shape_size.x / shape_size.y;
+    uv.x += (1. - shape_size.x / shape_size.y) / 2.;
+
+    vec2 center = vec2(.5, .5);
+    vec2 p = uv - center;
+    float len = length(p);
+    float noise = fbm(uv + fbm(uv + fbm(uv * 5. + time)));
+    
+    vec3 color;
+
+    if (init_complete == 0) {
+        color = loading(uv, center, p, len, noise);
+        color = color * noise;
+    }else {
+        float end_time = smoothstep(0., 1., time);
+		if (len < end_time) {
+            uv = gl_FragCoord.xy  / shape_size;
+
+            color = rgb(255, 255, 255);
+            color = mix( color, rgb(102, 87, 210), fbm(uv) );
+            color = mix( color, rgb(116, 135, 245), fbm(uv + fbm(uv)) );
+            color = mix( color, rgb(169, 183, 245), fbm(uv + fbm(uv +  fbm(uv + time))) );
+        }
+        color *= fbm(uv + fbm(uv +  fbm(uv + sin(time / 10.))));
+	}
+    gl_FragColor = vec4(color, 1.0);
 }

@@ -4,6 +4,7 @@
 #include <SFML/Graphics.hpp>
 #include <thread>
 #include "UseCard.h"
+#include "UseButton.h"
 
 using namespace std;
 using namespace sf;
@@ -59,39 +60,69 @@ int main() {
 
     clock.restart();
 
-    while (true)
-    {
-        bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
-        window.draw(bg_shape, bg_states);
-        window.display();
-    }return 0;
+    bool cardInit = false;
+
+    Font tvt_font, normal_font;
+
+    if (!tvt_font.loadFromFile("assets/TeyvatBlack-Regular.otf")) {
+        cout << "Load TeyvatBlack-Regular.ttf failed!" << endl;
+    }
+    if (!normal_font.loadFromFile("assets/hk4e_zh-cn.ttf")) {
+        cout << "Load hk4e_zh-cn.ttf failed!" << endl;
+    }
+
+    Text text;
+    text.setFont(normal_font);
+    text.setCharacterSize(24);
+    text.setFillColor(Color::White);
+    text.setPosition(100, 100);
+    text.setString("Hello, World!");
 
 
     UseCard* cards[52];
 
-    int index = 0;
-    for (CardType type = CardType_Heart; type < CardType_Joker; type = (CardType)(type + 1)) {
-        for (int i = 1; i <= 13; i++) {
-            cards[index++] = new UseCard(window, i, type, 0, WINDOW_HEIGHT / 2, WINDOW_HEIGHT / 12, WINDOW_WIDTH / 6);
+    //thread cardCreationThread([&]() {
+        int index = 0;
+        for (CardType type = CardType_Heart; type < CardType_Joker; type = (CardType)(type + 1)) {
+            for (int i = 1; i <= 13; i++) {
+                cards[index++] = new UseCard(window, i, type, 0, WINDOW_HEIGHT / 2, WINDOW_HEIGHT / 12, WINDOW_WIDTH / 6, tvt_font);
+                bg_shader.setUniform("percent", (float)(((type - CardType_Heart) * 13 + i) / 52.));
 
-            bg_shader.setUniform("time",(float)(((type - CardType_Heart) * 13 + i) / 52.));
-            window.draw(bg_shape, bg_states);
-            window.display();
+                bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
+                window.draw(bg_shape, bg_states);
+                window.display();
+            }
         }
-    }
+        cardInit = true;
+    //});
+
 
     float circle_center_x = WINDOW_WIDTH / 2;
-    float circle_center_y = WINDOW_HEIGHT;
+    float circle_center_y = WINDOW_HEIGHT * 1.2;
 
     int hoverIndex = -1;
     Clock hoverClock;
 
+    /*while (!cardInit) {
+        bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
+        window.draw(bg_shape, bg_states);
+        window.display();
+    }*/
+
+    UseButton* button_list[2];
+    float button_x = WINDOW_WIDTH / 2;
+    float button_y = WINDOW_HEIGHT / 3;
+
+    button_list[0] = new UseButton(window, button_x, button_y, 100, "create game room", normal_font);
+    button_list[1] = new UseButton(window, button_x, button_y + 70, 100, "join game room", normal_font);
+
+    bg_shader.setUniform("init_complete", 1);
     clock.restart();
 
     while (isPlaying) {
-        //Input(window, button);
         window.clear(sf::Color::White);
-
+        bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
+        window.draw(bg_shape, bg_states);
 
         for (int i = 0; i < 52; i++) {
             if (clock.getElapsedTime().asSeconds() <= 1.) {
@@ -113,7 +144,7 @@ int main() {
                     hoverIndex = i;
                 }
                 else {
-                    float scale = smoothstep(0., .2, hoverClock.getElapsedTime().asSeconds()) * .2 + 1.;
+                    float scale = smoothstep(0., .01, hoverClock.getElapsedTime().asSeconds()) * .2 + 1.;
                     cards[i]->scale(scale, scale);
                 }
                 break;
@@ -123,6 +154,14 @@ int main() {
                 cards[i]->scale(1, 1);
             }
         }
+
+        for (int i = 0; i < 2; i++) {
+            button_list[i]->hover();
+            button_list[i]->click();
+
+			button_list[i]->show();
+		}
+        
 
         window.display();
     }

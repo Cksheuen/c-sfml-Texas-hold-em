@@ -85,10 +85,7 @@ public:
         else {
             state = shader.loadFromFile(VertexShaderPath, FragmentShaderPath);
         }
-        if (state) {
-            std::cout << "Shader loaded successfully!" << std::endl;
-        }
-        else {
+        if (!state) {
             std::cout << "Error: " << state << std::endl;
             return;
         }
@@ -118,6 +115,7 @@ public:
     }
     void setTextTexture(sf::RenderTexture& texture) {
 		shader.setUniform("text_texture", texture.getTexture());
+        cout << "set text texture" << endl;
 	}
     void clear() {
         window.clear(sf::Color::White);
@@ -128,7 +126,6 @@ public:
     void setMidTexture(sf::RenderTexture& texture) {
         shader.setUniform("if_mid_texture", true);
         shader.setUniform("mid_texture", texture.getTexture());
-        cout << "set mid texture" << endl;
     }
     void disappearShader() {
         disappearClock.restart();
