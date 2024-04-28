@@ -56,8 +56,9 @@ private:
     }
 
     void setGlobalPositionCircleShape(sf::CircleShape& shape) {
-        sf::Vector2f globalPosition = sf::Vector2f(shape.getPosition().x
-            , window.getSize().y - shape.getPosition().y - shape.getRadius() * 2.0);
+        sf::Vector2f globalPosition = sf::Vector2f(shape.getPosition().x + shape.getRadius()
+            , window.getSize().y - shape.getPosition().y - shape.getRadius());
+        cout << "global position: " << globalPosition.x << " " << globalPosition.y << endl;
         shader.setUniform("global_pos", globalPosition);
     }
 
@@ -111,6 +112,10 @@ public:
         shader.setUniform("shape_size", sf::Vector2f(widthSet, heightSet));
         width = widthSet;
         height = heightSet;
+        //setGlobalPosition(shape);
+    }
+    void setShapeSize(float radiusSet) {
+        shader.setUniform("radius", radiusSet);
         //setGlobalPosition(shape);
     }
     void setTextTexture(sf::RenderTexture& texture) {

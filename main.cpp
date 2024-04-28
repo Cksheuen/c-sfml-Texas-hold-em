@@ -5,6 +5,7 @@
 #include <thread>
 #include "UseCard.h"
 #include "UseButton.h"
+#include "UseChip.h"
 
 using namespace std;
 using namespace sf;
@@ -38,6 +39,27 @@ int main() {
     Shader bg_shader;
     RenderStates bg_states;
 
+    Font tvt_font, normal_font;
+
+    if (!tvt_font.loadFromFile("assets/TeyvatBlack-Regular.otf")) {
+        cout << "Load TeyvatBlack-Regular.ttf failed!" << endl;
+    }
+    if (!normal_font.loadFromFile("assets/hk4e_zh-cn.ttf")) {
+        cout << "Load hk4e_zh-cn.ttf failed!" << endl;
+    }
+
+    UseChip* chip;
+    chip = new UseChip(window, 100, 100, 100, 1, normal_font);
+
+    while (1) {
+        window.clear(sf::Color::White);
+        chip->show();
+
+        window.display();
+    }
+
+    return 0;
+
     RectangleShape bg_shape(Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT));
     bg_shape.setPosition(0, 0);
 
@@ -56,13 +78,12 @@ int main() {
 
     bg_shader.setUniform("shape_size", sf::Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT));
 
-    cout << WINDOW_WIDTH << " " << WINDOW_HEIGHT << endl;
 
     clock.restart();
 
     bool cardInit = false;
 
-    Font tvt_font, normal_font;
+    //Font tvt_font, normal_font;
 
     if (!tvt_font.loadFromFile("assets/TeyvatBlack-Regular.otf")) {
         cout << "Load TeyvatBlack-Regular.ttf failed!" << endl;

@@ -80,7 +80,7 @@ void main()
     float fy = abs(uv.y - .5);
     fy = 1. - smoothstep(0., .5, fy);
 
-    vec3 col = texture2D(text_texture, uv + vec2(-0.2, 0.25)).xyz * 2.;
+    vec3 col = texture2D(text_texture, uv + vec2(-0.2, 0.3)).xyz * 2.;
 
     if (hover == 1) {
 		uv += (time) / 10.;
@@ -114,55 +114,4 @@ void main()
 
     
 	if (edge <= .5) gl_FragColor = vec4(rgb(63, 78, 164) * .6, 1.) * (fx + fy);
-
-    return;
-
-    vec2 edge_vec = edge_to_border * shape_size * 2.;
-    edge_vec.y *= y_to_x;
-
-    float signWidth = shape_size.x / 5.;
-    dx = min(gl_FragCoord.x - global_pos.x - edge_vec.x, global_pos.x + shape_size.x - edge_vec.x - gl_FragCoord.x);
-    dy = signWidth - min(gl_FragCoord.y - global_pos.y - edge_vec.y, global_pos.y + shape_size.y - edge_vec.y - gl_FragCoord.y);
-
-
-    if ( dx <= signWidth && dx >= 0. && dy <=signWidth && dy >= 0. && abs(uv.x - uv.y) > .5) {
-        vec4 text_color = texture(text_texture, vec2(dx / signWidth, dy / signWidth));
-        //if (text_color != vec4(0., 0., 0., 0.)) 
-        if (text_color.z > 0.)
-        gl_FragColor = vec4(rgb(63, 78, 164) * .4, 1.);
-    }
-
-    if (if_mid_texture) {
-        float ratio = 2.;
-        dx = gl_FragCoord.x - global_pos.x - (shape_size.x - shape_size.x / ratio) / 1.7;
-        dy = gl_FragCoord.y - global_pos.y - (shape_size.y - shape_size.x / ratio) / 2.;
-        if (dx <= shape_size.x / ratio && dy <= shape_size.x / ratio && dx > 0. && dy > 0.) {
-            vec4 mid_color = texture(mid_texture, vec2(dx / (shape_size.x / ratio), dy / (shape_size.x / ratio)));
-			if (mid_color.a > 0.) 
-            gl_FragColor = vec4(rgb(63, 78, 164) * .4, 1.);
-            //gl_FragColor = mid_color;
-        }
-        
-	}
-
-    if (disappear_time > 0.) {
-        vec3 base = vec3(edge);
-        vec2 vUv = uv;
-        uv.y /= y_to_x;
-        float t = 1. -  pow(3. * disappear_time, .9);
-
-        float edges_mask = 1. - max(.4, pow(length(vUv - vec2(.5)), 1.5));
-        float noise_mask = fbm(vec2(.01 * shape_size * uv)) / edges_mask;
-        noise_mask -= .06 * length(base.rgb);
-
-        vec3 color = mix(base.rgb, vec3(0.), smoothstep(noise_mask - .15, noise_mask - .1, t));
-        vec3 fire_color = fbm(6. * vUv + .1 * t) * vec3(6., 1.4, .0);
-        color = mix(color, fire_color, smoothstep(noise_mask - .1, noise_mask - .05, t));
-        color -= .3 * fbm(3. * vUv) * pow(t, 4.);
-
-        float opacity = 1. - smoothstep(noise_mask - .01, noise_mask, t);
-
-        gl_FragColor = vec4(color, opacity);
-    }
-
 }
