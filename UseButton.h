@@ -41,7 +41,6 @@ public:
 	}
 	void show() {
 		shader->useShader();
-		//window.draw(text);
 	}
 	bool hover() {
 		Vector2i mousePos = Mouse::getPosition(window);
@@ -60,18 +59,19 @@ public:
 		}
 	}
 	bool click() {
-		Vector2i mousePos = Mouse::getPosition(window);
 		Event event;
 		window.pollEvent(event);
 
 		if (event.type == Event::MouseButtonPressed) {
+			Vector2i mousePos = Mouse::getPosition(window);
 			if (event.mouseButton.button == Mouse::Left) {
+
 				if (ButtonShape.getGlobalBounds().contains(mousePos.x, mousePos.y)) {
-					cout << "button click" << endl;
 					return true;
 				}
 			}
 		}
+		return false;
 
 	}
 };

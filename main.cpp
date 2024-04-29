@@ -2,6 +2,7 @@
 #include <math.h>
 #include <cassert>
 #include <SFML/Graphics.hpp>
+#include <SFML/Network.hpp>
 #include <thread>
 #include "UseCard.h"
 #include "UseButton.h"
@@ -13,9 +14,11 @@ using namespace sf;
 const int WINDOW_WIDTH = 1000;
 const int WINDOW_HEIGHT = 800;
 
-void Input(RenderWindow& window, sf::RectangleShape& button);
+void BasicInput(RenderWindow& window);
 
-bool isPlaying = true;
+bool StartInterface = true;
+bool ChooseRoomInterface = false;
+bool RoomOwnerInterface = false;
 bool init = false;
 
 template<class T>
@@ -34,31 +37,13 @@ float step(float edge, float x) {
 }
 
 int main() {
+    TcpListener listener;
+
+
     RenderWindow window(VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "SFML Game Project");
     Clock clock;
     Shader bg_shader;
     RenderStates bg_states;
-
-    Font tvt_font, normal_font;
-
-    if (!tvt_font.loadFromFile("assets/TeyvatBlack-Regular.otf")) {
-        cout << "Load TeyvatBlack-Regular.ttf failed!" << endl;
-    }
-    if (!normal_font.loadFromFile("assets/hk4e_zh-cn.ttf")) {
-        cout << "Load hk4e_zh-cn.ttf failed!" << endl;
-    }
-
-    UseChip* chip;
-    chip = new UseChip(window, 100, 100, 100, 1, normal_font);
-
-    while (1) {
-        window.clear(sf::Color::White);
-        chip->show();
-
-        window.display();
-    }
-
-    return 0;
 
     RectangleShape bg_shape(Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT));
     bg_shape.setPosition(0, 0);
@@ -83,7 +68,7 @@ int main() {
 
     bool cardInit = false;
 
-    //Font tvt_font, normal_font;
+    Font tvt_font, normal_font;
 
     if (!tvt_font.loadFromFile("assets/TeyvatBlack-Regular.otf")) {
         cout << "Load TeyvatBlack-Regular.ttf failed!" << endl;
@@ -92,30 +77,31 @@ int main() {
         cout << "Load hk4e_zh-cn.ttf failed!" << endl;
     }
 
-    Text text;
-    text.setFont(normal_font);
-    text.setCharacterSize(24);
-    text.setFillColor(Color::White);
-    text.setPosition(100, 100);
-    text.setString("Hello, World!");
-
 
     UseCard* cards[52];
 
-    //thread cardCreationThread([&]() {
-        int index = 0;
-        for (CardType type = CardType_Heart; type < CardType_Joker; type = (CardType)(type + 1)) {
-            for (int i = 1; i <= 13; i++) {
-                cards[index++] = new UseCard(window, i, type, 0, WINDOW_HEIGHT / 2, WINDOW_HEIGHT / 12, WINDOW_WIDTH / 6, tvt_font);
-                bg_shader.setUniform("percent", (float)(((type - CardType_Heart) * 13 + i) / 52.));
+    int index = 0;
+    for (CardType type = CardType_Heart; type < CardType_Joker; type = (CardType)(type + 1)) {
+        for (int i = 1; i <= 13; i++) {
+            cards[index++] = new UseCard(window, i, type, 0, WINDOW_HEIGHT / 2, WINDOW_HEIGHT / 12, WINDOW_WIDTH / 6, tvt_font);
+            bg_shader.setUniform("percent", (float)(((type - CardType_Heart) * 13 + i) / 60.));
 
-                bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
-                window.draw(bg_shape, bg_states);
-                window.display();
-            }
+            bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
+            window.draw(bg_shape, bg_states);
+            window.display();
         }
-        cardInit = true;
-    //});
+    }
+
+    UseChip* chips[8];
+    int chips_value[8] = { 1, 2, 5, 10, 20, 25, 50, 100 };
+    for (int i = 0; i < 8; i++) {
+        chips[i] = new UseChip(window, 100 + i * 100, 100, 50, chips_value[i], normal_font);
+        bg_shader.setUniform("percent", (float)((i + 53) / 60.));
+
+        bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
+        window.draw(bg_shape, bg_states);
+        window.display();
+    }
 
 
     float circle_center_x = WINDOW_WIDTH / 2;
@@ -124,11 +110,6 @@ int main() {
     int hoverIndex = -1;
     Clock hoverClock;
 
-    /*while (!cardInit) {
-        bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
-        window.draw(bg_shape, bg_states);
-        window.display();
-    }*/
 
     UseButton* button_list[2];
     float button_x = WINDOW_WIDTH / 2;
@@ -140,7 +121,8 @@ int main() {
     bg_shader.setUniform("init_complete", 1);
     clock.restart();
 
-    while (isPlaying) {
+    while (StartInterface) {
+        //BasicInput(window);
         window.clear(sf::Color::White);
         bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
         window.draw(bg_shape, bg_states);
@@ -176,47 +158,97 @@ int main() {
             }
         }
 
+        for (int i = 0; i < 8; i++) {
+            chips[i]->show();
+        }
+
         for (int i = 0; i < 2; i++) {
             button_list[i]->hover();
-            button_list[i]->click();
-
 			button_list[i]->show();
 		}
+
+        if (button_list[0]->click()) {
+            int port = 3000;
+            while (listener.listen(port) != Socket::Done && port < 4000) {
+				port++;
+			}
+			cout << "create game room, the room is on the local port: " << port << endl;
+			RoomOwnerInterface = true;
+			break;
+		}
+        if (button_list[1]->click()) {
+            cout << "join game room" << endl;
+            ChooseRoomInterface = true;
+            break;
+        }
         
 
         window.display();
     }
+
+    if (RoomOwnerInterface) {
+        cout << "start room owner interface" << endl;
+        window.clear(sf::Color::White);
+        window.display();
+        while (true)
+        {
+        }
+    }
+
+    bg_shader.setUniform("init_complete", 0);
+    clock.restart();
+
+    vector<int> room_list;
+
+    for (int port = 3000; port < 4000; port++) {
+		TcpSocket socket;
+        if (socket.connect("localhost", port) == Socket::Done) {
+            room_list.push_back(port);
+            cout << "room " << port << " is available" << endl;
+            bg_shader.setUniform("percent", (float)((port - 3000.0) / 2000.0));
+
+            bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
+            window.draw(bg_shape, bg_states);
+            window.display();
+            socket.disconnect();
+        }
+        else break;
+    }
+
+    vector<UseButton*> room_button_list;
+
+    for (int i = 0; i < room_list.size(); i++) {
+        cout << "create room button " << i << endl;
+		room_button_list.push_back(new UseButton(window, button_x, button_y + i * 70, 100, "room " + to_string(room_list[i]), normal_font));
+        bg_shader.setUniform("percent", (float)(0.5 + (i + 1) / room_list.size()));
+
+        bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
+        window.draw(bg_shape, bg_states);
+        window.display();
+    }
+
+    bg_shader.setUniform("init_complete", 1);
+    clock.restart();
+
+    cout << "start choose room interface" << endl;
+    while (ChooseRoomInterface)
+    {
+        window.clear(sf::Color::White);
+		bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
+		window.draw(bg_shape, bg_states);
+
+        for (int i = 0; i < room_button_list.size(); i++) {
+			room_button_list[i]->hover();
+			room_button_list[i]->show();
+            if (room_button_list[i]->click()) {
+				cout << "join room " << room_list[i] << endl;
+				break;
+			}
+		}
+
+		window.display();
+    }
     window.close();
 
     return 0;
-}
-
-void Input(RenderWindow& window, sf::RectangleShape& button) {
-    sf::Event event;
-    while (window.pollEvent(event))
-    {
-        if (event.type == sf::Event::Closed)
-            window.close();
-
-        if (event.type == sf::Event::MouseButtonPressed)
-        {
-            if (event.mouseButton.button == sf::Mouse::Left)
-            {
-                // 获取鼠标的位置
-                sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-
-                // 检查鼠标是否在按键上
-                if (button.getGlobalBounds().contains(mousePos.x, mousePos.y))
-                {
-                    // 鼠标在按键上，处理点击事件
-                    std::cout << "Button clicked!" << std::endl;
-                    //shader.disappearCard();
-                }
-            }
-        }
-
-        if (Keyboard::isKeyPressed(Keyboard::Escape)) {
-            isPlaying = false;
-        }
-    }
 }

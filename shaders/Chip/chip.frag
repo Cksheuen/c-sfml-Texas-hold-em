@@ -6,7 +6,6 @@ uniform int hover;
 uniform float radius;
 uniform vec3 color_set_in;
 
-uniform bool if_mid_texture;
 uniform sampler2D mid_texture;
 uniform sampler2D text_texture;
 
@@ -84,6 +83,7 @@ void main()
     float len = length(abs(uv));
     vec3 colorIn = color_set_in / 255.;
 
+    float light = 3. - colorIn.x +- colorIn.y - colorIn.z;
 
     float ratio = .6;
     vec2 origin = global_pos - vec2(radius * ratio, radius * ratio);
@@ -95,20 +95,24 @@ void main()
     float shader = slow(smoothstep(-1.5, 1.5, a), 1.);
 
     if (len < radius * ratio) {
-
-		vec2 o, n;
-        float pattern_ans = pattern(vUv, o, n);
-        
-        vec3 col = vec3(0.2,0.1,0.4);
-        col = mix( col, adjustBrightness(colorIn, 0.1), pattern_ans );
-        col = mix( col, adjustBrightness(colorIn, -0.1), dot(n,n) );
-        col = mix( col, colorIn, 0.5*smoothstep(1.2,1.3,abs(n.y)+abs(n.x)) );
-        col *= pattern_ans*2.0;
-
         vec3 col_text = texture2D(text_texture, vUv).xyz;
-        if (col_text.x > 0.) gl_FragColor = vec4(colorIn * 1.5 * smoothstep(0., .3 ,.3 - length(abs(vUv - .5)) ), 1.); 
-        else if (texture2D(text_texture, vUv + .05).x > 0.) gl_FragColor = vec4(col * pow(shader, 2.), 1.);
-        else gl_FragColor = vec4(col * shader, 1.);
+        if (col_text.x > 0.) gl_FragColor = vec4(colorIn * light * smoothstep(0., 1., texture2D(text_texture, vUv).r), 1.); 
+        else {
+            vec2 o, n;
+            float dir = pow(mod(time, 2.) - 1., 2.); // + vec2(dir * cos(time), -dir * sin(time))
+            float pattern_ans = pattern(vUv + time / 2., o, n);
+            pattern_ans = pattern(vUv + pattern_ans, o, n);
+            pattern_ans = pattern(vUv + pattern_ans * time / 10., o, n);
+            vec3 col = vec3(0.2,0.1,0.4);
+            col = mix( col, adjustBrightness(colorIn, 0.1), pattern_ans );
+            col = mix( col, adjustBrightness(colorIn, -0.1), dot(n,n) );
+            col = mix( col, colorIn, 0.5*smoothstep(1.2,1.3,abs(n.y)+abs(n.x)) );
+            col *= pattern_ans*2.0;
+            if (texture2D(text_texture, vUv + .02 * sin(time) * cos(time)).x > 0.) gl_FragColor = vec4(col * pow(shader, 2.), 1.);
+            else {
+                gl_FragColor = vec4(col * shader * light, 1.);
+            }
+        }
 	} else if (len < radius * (ratio + (1. - ratio) / 3. * 2.)) {
         float color = fbm(vUv + time / 10.) * 1.2;
         float theta = atan(uv.y, uv.x);
@@ -128,6 +132,7 @@ void main()
         }
 
         //color *= pow(shader, .01);
+        color *= light;
 
         gl_FragColor = vec4(color * colorIn, 1.);
         
@@ -140,6 +145,7 @@ void main()
         color = mix( color, adjustBrightness(colorIn, -0.1), fbm(vUv + fbm(vUv +  fbm(vUv + time))) );
         color *= fbm(vUv + fbm(vUv +  fbm(vUv + sin(time / 10.))));
 
-        gl_FragColor = vec4(color, 1.);
+        color *= light;
+        gl_FragColor = vec4(color * colorIn, 1.);
     }
 }

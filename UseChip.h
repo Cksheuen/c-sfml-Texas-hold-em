@@ -35,23 +35,18 @@ public:
 		shader = new UseShader<CircleShape>(windowSet, clock, ChipShape, "shaders/Chip/chip.vert", "shaders/Chip/chip.frag");
 		shader->setShapeSize(radius);
 		shader->shader.setUniform("color_set_in", ChipColor[value]);
-		cout << "color_set_in: " << ChipColor[value].x << " " << ChipColor[value].y << " " << ChipColor[value].z << endl;
 
 		text.setFont(font);
-		//text.setPosition(x, y + height / 2. - 18.);
 		text.setString(to_string(value));
 		text.setCharacterSize(radius / 50 * 24);
 		text.setFillColor(Color::White);
 
 
-		// 获取文字的边界
 		sf::FloatRect textBounds = text.getLocalBounds();
 
-		// 计算新的位置
 		float x = (radius - textBounds.width) / 2 - textBounds.left;
 		float y = (radius - textBounds.height) / 2 - textBounds.top;
 
-		// 设置新的位置
 		text.setPosition(x, y);
 
 		int width = to_string(value).length() * 16;
@@ -65,7 +60,6 @@ public:
 	}
 	void show() {
 		shader->useShader();
-		window.draw(text);
 	}
 	bool hover() {
 		Vector2i mousePos = Mouse::getPosition(window);
@@ -91,7 +85,6 @@ public:
 		if (event.type == Event::MouseButtonPressed) {
 			if (event.mouseButton.button == Mouse::Left) {
 				if (ChipShape.getGlobalBounds().contains(mousePos.x, mousePos.y)) {
-					cout << "button click" << endl;
 					return true;
 				}
 			}
