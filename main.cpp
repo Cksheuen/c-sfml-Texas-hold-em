@@ -71,10 +71,10 @@ int main() {
     Font tvt_font, normal_font;
 
     if (!tvt_font.loadFromFile("assets/TeyvatBlack-Regular.otf")) {
-        cout << "Load TeyvatBlack-Regular.ttf failed!" << endl;
+        std::cout << "Load TeyvatBlack-Regular.ttf failed!" << endl;
     }
     if (!normal_font.loadFromFile("assets/hk4e_zh-cn.ttf")) {
-        cout << "Load hk4e_zh-cn.ttf failed!" << endl;
+        std::cout << "Load hk4e_zh-cn.ttf failed!" << endl;
     }
 
 
@@ -172,12 +172,12 @@ int main() {
             while (listener.listen(port) != Socket::Done && port < 4000) {
 				port++;
 			}
-			cout << "create game room, the room is on the local port: " << port << endl;
+            std::cout << "create game room, the room is on the local port: " << port << endl;
 			RoomOwnerInterface = true;
 			break;
 		}
         if (button_list[1]->click()) {
-            cout << "join game room" << endl;
+            std::cout << "join game room" << endl;
             ChooseRoomInterface = true;
             break;
         }
@@ -187,11 +187,49 @@ int main() {
     }
 
     if (RoomOwnerInterface) {
-        cout << "start room owner interface" << endl;
-        window.clear(sf::Color::White);
-        window.display();
+        std::cout << "start room owner interface" << endl;
+        bool GameStart = false;
+        UseButton* start_button = new UseButton(window, button_x, button_y, 100, "start game", normal_font);
+        clock.restart();
+        vector<TcpSocket*> clients;
+        std::thread wait_for_clients([&](std::vector<TcpSocket*>& clients) {
+            while (clients.size() < 4 && !GameStart) {
+                TcpSocket* client = new TcpSocket;
+                if (listener.accept(*client) == Socket::Done) {
+                    clients.push_back(client);
+                    Packet packet;
+                    packet << "welcome to the game room";
+                    client->send(packet);
+                    cout << "send welcome message to " << client->getRemoteAddress() << endl;
+                    std::cout << "new connection from " << client->getRemoteAddress() << endl;
+                }
+                else {
+                    delete client;
+                }
+            }
+            GameStart = true;
+            }, std::ref(clients));
+        wait_for_clients.detach();
         while (true)
         {
+
+			bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
+			window.draw(bg_shape, bg_states);
+
+            start_button->hover();
+            if (start_button->click()) {
+                GameStart = true;
+                std::cout << "game start" << endl;
+                for (int i = 0; i < clients.size(); i++) {
+                    Packet packet;
+					packet << "game start";
+					clients[i]->send(packet);
+				
+                }
+            }
+            start_button->show();
+
+			window.display();
         }
     }
 
@@ -200,25 +238,38 @@ int main() {
 
     vector<int> room_list;
 
-    for (int port = 3000; port < 4000; port++) {
-		TcpSocket socket;
-        if (socket.connect("localhost", port) == Socket::Done) {
-            room_list.push_back(port);
-            cout << "room " << port << " is available" << endl;
-            bg_shader.setUniform("percent", (float)((port - 3000.0) / 2000.0));
+    bool search_room_complete = false;
 
-            bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
-            window.draw(bg_shape, bg_states);
-            window.display();
-            socket.disconnect();
+    std::thread search_room([&](std::vector<int>& room_list, sf::Shader& bg_shader) {
+        for (int port = 3000; port < 4000; port++) {
+            sf::TcpSocket* socket = new TcpSocket;
+            if (socket->connect("localhost", port) == sf::Socket::Done) {
+                room_list.push_back(port);
+                std::cout << "room " << port << " is available" << std::endl;
+                bg_shader.setUniform("percent", (float)((port - 3000.0) / 2000.0));
+
+                socket->disconnect();
+            }
+            else {
+                delete socket;
+                break;
+            }
         }
-        else break;
+        search_room_complete = true;
+        }, std::ref(room_list), std::ref(bg_shader));
+    search_room.detach();
+
+    while (!search_room_complete)
+    {
+        bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
+        window.draw(bg_shape, bg_states);
+        window.display();
     }
+
 
     vector<UseButton*> room_button_list;
 
     for (int i = 0; i < room_list.size(); i++) {
-        cout << "create room button " << i << endl;
 		room_button_list.push_back(new UseButton(window, button_x, button_y + i * 70, 100, "room " + to_string(room_list[i]), normal_font));
         bg_shader.setUniform("percent", (float)(0.5 + (i + 1) / room_list.size()));
 
@@ -230,7 +281,10 @@ int main() {
     bg_shader.setUniform("init_complete", 1);
     clock.restart();
 
-    cout << "start choose room interface" << endl;
+    std::cout << "start choose room interface" << endl;
+
+    int room_index = -1;
+    bool GameStart = false;
     while (ChooseRoomInterface)
     {
         window.clear(sf::Color::White);
@@ -241,13 +295,31 @@ int main() {
 			room_button_list[i]->hover();
 			room_button_list[i]->show();
             if (room_button_list[i]->click()) {
-				cout << "join room " << room_list[i] << endl;
+                std::cout << "join room " << room_list[i] << endl;
+                room_index = room_list[i];
+                GameStart = true;
 				break;
 			}
 		}
 
 		window.display();
     }
+    TcpSocket* socket = new TcpSocket;
+    if (socket->connect("localhost", room_index) == sf::Socket::Done) {
+		Packet packet;
+		packet << "join room " + to_string(room_index);
+		socket->send(packet);
+	}
+    Packet packet;
+    while (GameStart)
+    {
+        if (socket->receive(packet) == sf::Socket::Done) {
+			std::string message;
+			packet >> message;
+			std::cout << message << endl;
+		}
+    }
+
     window.close();
 
     return 0;

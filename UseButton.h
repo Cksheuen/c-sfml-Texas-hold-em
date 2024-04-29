@@ -37,7 +37,6 @@ public:
 
 
 		shader->setTextTexture(renderTexture);
-		cout << "renderTexture" << endl;
 	}
 	void show() {
 		shader->useShader();
