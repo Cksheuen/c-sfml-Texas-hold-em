@@ -16,8 +16,6 @@ using namespace sf;
 const int WINDOW_WIDTH = 1000;
 const int WINDOW_HEIGHT = 800;
 
-void BasicInput(RenderWindow& window);
-
 bool StartInterface = true;
 bool ChooseRoomInterface = false;
 bool RoomOwnerInterface = false;
@@ -40,7 +38,6 @@ float step(float edge, float x) {
 
 int main() {
     TcpListener listener;
-
 
     RenderWindow window(VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "SFML Game Project");
     Clock clock;
