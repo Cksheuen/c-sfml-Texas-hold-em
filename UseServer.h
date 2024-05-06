@@ -54,4 +54,10 @@ public:
             });
         wait_for_clients.detach();
     }
+
+    void SendToAllClients(Packet packet) {
+		for (TcpSocket* client : *clients) {
+			client->send(packet);
+		}
+	}
 };
