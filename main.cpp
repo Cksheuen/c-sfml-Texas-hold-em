@@ -7,6 +7,8 @@
 #include "UseCard.h"
 #include "UseButton.h"
 #include "UseChip.h"
+#include "UseServer.h"
+#include "UseClient.h"
 
 using namespace std;
 using namespace sf;
@@ -181,37 +183,27 @@ int main() {
             ChooseRoomInterface = true;
             break;
         }
-        
 
         window.display();
     }
 
     if (RoomOwnerInterface) {
         std::cout << "start room owner interface" << endl;
-        bool GameStart = false;
+        static bool GameStart = false;
         UseButton* start_button = new UseButton(window, button_x, button_y, 100, "start game", normal_font);
         clock.restart();
+        static int player_count = 0;
         vector<TcpSocket*> clients;
-        std::thread wait_for_clients([&](std::vector<TcpSocket*>& clients) {
-            while (clients.size() < 4 && !GameStart) {
-                TcpSocket* client = new TcpSocket;
-                if (listener.accept(*client) == Socket::Done) {
-                    clients.push_back(client);
-                    Packet packet;
-                    packet << "welcome to the game room";
-                    client->send(packet);
-                    cout << "send welcome message to " << client->getRemoteAddress() << endl;
-                    std::cout << "new connection from " << client->getRemoteAddress() << endl;
-                }
-                else {
-                    delete client;
-                }
-            }
-            GameStart = true;
-            }, std::ref(clients));
-        wait_for_clients.detach();
+        UseServer link(&clients, &GameStart, &listener, [](vector<TcpSocket*>* clients) {
+            player_count = clients->size();
+            std::cout << "player count: " << player_count << endl;
+        });
+        
+        link.WaitForConnection();
+
         while (true)
         {
+            window.clear(sf::Color::White);
 
 			bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
 			window.draw(bg_shape, bg_states);
@@ -224,10 +216,22 @@ int main() {
                     Packet packet;
 					packet << "game start";
 					clients[i]->send(packet);
+                    clients[i]->receive(packet);
+                    std::string message;
+                    packet >> message;
+                    std::cout << "received from " << clients[i]->getRemoteAddress() << " : " << message << endl;
 				
                 }
             }
             start_button->show();
+
+            Text text;
+            text.setFont(normal_font);
+            text.setString("waiting for clients..., now " + to_string(player_count) + " players");
+            text.setCharacterSize(24);
+            text.setFillColor(Color::Black);
+            text.setPosition(10, 10);
+            window.draw(text);
 
 			window.display();
         }
@@ -240,24 +244,8 @@ int main() {
 
     bool search_room_complete = false;
 
-    std::thread search_room([&](std::vector<int>& room_list, sf::Shader& bg_shader) {
-        for (int port = 3000; port < 4000; port++) {
-            sf::TcpSocket* socket = new TcpSocket;
-            if (socket->connect("localhost", port) == sf::Socket::Done) {
-                room_list.push_back(port);
-                std::cout << "room " << port << " is available" << std::endl;
-                bg_shader.setUniform("percent", (float)((port - 3000.0) / 2000.0));
-
-                socket->disconnect();
-            }
-            else {
-                delete socket;
-                break;
-            }
-        }
-        search_room_complete = true;
-        }, std::ref(room_list), std::ref(bg_shader));
-    search_room.detach();
+    UseClient client(&room_list, &bg_shader, &search_room_complete);
+    client.SearchServerList();
 
     while (!search_room_complete)
     {
@@ -266,10 +254,10 @@ int main() {
         window.display();
     }
 
-
     vector<UseButton*> room_button_list;
 
     for (int i = 0; i < room_list.size(); i++) {
+        std::cout << "room_but " << room_list[i] << " is ready" << endl;
 		room_button_list.push_back(new UseButton(window, button_x, button_y + i * 70, 100, "room " + to_string(room_list[i]), normal_font));
         bg_shader.setUniform("percent", (float)(0.5 + (i + 1) / room_list.size()));
 
@@ -285,7 +273,7 @@ int main() {
 
     int room_index = -1;
     bool GameStart = false;
-    while (ChooseRoomInterface)
+    while (ChooseRoomInterface && !GameStart)
     {
         window.clear(sf::Color::White);
 		bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
@@ -295,7 +283,7 @@ int main() {
 			room_button_list[i]->hover();
 			room_button_list[i]->show();
             if (room_button_list[i]->click()) {
-                std::cout << "join room " << room_list[i] << endl;
+                std::cout << "choose join room " << room_list[i] << endl;
                 room_index = room_list[i];
                 GameStart = true;
 				break;
@@ -304,15 +292,29 @@ int main() {
 
 		window.display();
     }
+    std::cout << "to join room " << room_index << endl;
     TcpSocket* socket = new TcpSocket;
     if (socket->connect("localhost", room_index) == sf::Socket::Done) {
+        std::cout << "connect to room " << room_index << " successfully" << endl;
 		Packet packet;
-		packet << "join room " + to_string(room_index);
+		packet << "hello hello";
 		socket->send(packet);
 	}
+    else {
+        std::cout << "connect to room " << room_index << " failed" << endl;
+    }
     Packet packet;
+    window.clear(sf::Color::White);
+    bg_shader.setUniform("init_complete", 1);
+    clock.restart();
+    std::cout << "start game" << endl;
+
     while (GameStart)
     {
+        bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
+        window.draw(bg_shape, bg_states);
+        window.display();
+
         if (socket->receive(packet) == sf::Socket::Done) {
 			std::string message;
 			packet >> message;
