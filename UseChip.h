@@ -22,12 +22,13 @@ private:
 	Clock clock;
 	UseShader<CircleShape>* shader;
 	CircleShape ChipShape;
-	int value;
+	
 	bool hoverState = false;
 	Font font;
 	RenderTexture renderTexture;
 	Text text;
 public:
+	int value;
 	UseChip(RenderWindow& windowSet, float xSet, float ySet, float radiusSet, int valueSet, Font fontSet)
 		:  radius(radiusSet), window(windowSet), ChipShape(radius),
 		x(xSet), y(ySet), value(valueSet), font(fontSet) {
@@ -89,6 +90,13 @@ public:
 				}
 			}
 		}
+
+	}
+
+	void setPosition(float xSet, float ySet) {
+		x = xSet;
+		y = ySet;
+		ChipShape.setPosition(x - radius / 2., y);
 
 	}
 };

@@ -14,8 +14,8 @@
 using namespace std;
 using namespace sf;
 
-const int WINDOW_WIDTH = 1000;
-const int WINDOW_HEIGHT = 800;
+const int WINDOW_WIDTH = 600;
+const int WINDOW_HEIGHT = 400;
 
 bool StartInterface = true;
 bool ChooseRoomInterface = false;
@@ -59,8 +59,20 @@ int main() {
             });
 
         server.WaitForConnection();
+        server.ReceiveMessage();
 
         ui.RoomOwnerInterface(server, &player_count, &GameStart);
+
+        server.SendCardToAll([&ui](int x, int y) {
+            ui.MoveCard(x, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3 * 2);
+            ui.MoveCard(y, WINDOW_WIDTH / 3 * 2, WINDOW_HEIGHT / 3 * 2);
+            });
+        server.RunTurns([&ui](int new_public_card) {
+                ui.AddNewPublicCard(new_public_card);
+            },
+            [&ui](bool my_turn) {
+                ui.SetMyTurn(my_turn);
+            });
     } else if (ModeChoose == ServerOrClient::Client) {
         ui.RunProgressBar();
 
@@ -72,6 +84,17 @@ int main() {
         client.SearchServerList();
 
         int room_index = ui.ChooseRoomInterface(client, &search_room_complete, room_list);
-         ui.ClientGameInterface(room_index);
+        client.ChooseRoom(room_index);
+        ui.ClientGameInterface(client, room_index);
+        client.ReceiveMessage([&ui](int x, int y) {
+            ui.MoveCard(x, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3 * 2);
+            ui.MoveCard(y, WINDOW_WIDTH / 3 * 2, WINDOW_HEIGHT / 3 * 2);
+            },
+            [&ui](int new_public_card) {
+                ui.AddNewPublicCard(new_public_card);
+            },
+            [&ui](bool my_turn) {
+                ui.SetMyTurn(my_turn);
+            });
     }
 }

@@ -83,6 +83,12 @@ void main()
     float len = length(abs(uv));
     vec3 colorIn = color_set_in / 255.;
 
+    float u_time = 0.;
+
+    if (hover == 1) {
+        float u_time = time;
+    }
+
     float light = 3. - colorIn.x +- colorIn.y - colorIn.z;
 
     float ratio = .6;
@@ -99,26 +105,26 @@ void main()
         if (col_text.x > 0.) gl_FragColor = vec4(colorIn * light * smoothstep(0., 1., texture2D(text_texture, vUv).r), 1.); 
         else {
             vec2 o, n;
-            float dir = pow(mod(time, 2.) - 1., 2.); // + vec2(dir * cos(time), -dir * sin(time))
-            float pattern_ans = pattern(vUv + time / 2., o, n);
+            float dir = pow(mod(u_time, 2.) - 1., 2.); // + vec2(dir * cos(u_time), -dir * sin(u_time))
+            float pattern_ans = pattern(vUv + u_time / 2., o, n);
             pattern_ans = pattern(vUv + pattern_ans, o, n);
-            pattern_ans = pattern(vUv + pattern_ans * time / 10., o, n);
+            pattern_ans = pattern(vUv + pattern_ans * u_time / 10., o, n);
             vec3 col = vec3(0.2,0.1,0.4);
             col = mix( col, adjustBrightness(colorIn, 0.1), pattern_ans );
             col = mix( col, adjustBrightness(colorIn, -0.1), dot(n,n) );
             col = mix( col, colorIn, 0.5*smoothstep(1.2,1.3,abs(n.y)+abs(n.x)) );
             col *= pattern_ans*2.0;
-            if (texture2D(text_texture, vUv + .02 * sin(time) * cos(time)).x > 0.) gl_FragColor = vec4(col * pow(shader, 2.), 1.);
+            if (texture2D(text_texture, vUv + .02 * sin(u_time) * cos(u_time)).x > 0.) gl_FragColor = vec4(col * pow(shader, 2.), 1.);
             else {
                 gl_FragColor = vec4(col * shader * light, 1.);
             }
         }
 	} else if (len < radius * (ratio + (1. - ratio) / 3. * 2.)) {
-        float color = fbm(vUv + time / 10.) * 1.2;
+        float color = fbm(vUv + u_time / 10.) * 1.2;
         float theta = atan(uv.y, uv.x);
 
         for (int i=0; i< 3; i++) {
-            theta = mod(theta + (time / float(i + 1) ) + 2. * PI + i, PI);
+            theta = mod(theta + (u_time / float(i + 1) ) + 2. * PI + i, PI);
             vec2 theta_uv = vec2(len, theta / PI / 2.);
             float f = fbm(theta_uv) / 2.;
 
@@ -137,13 +143,13 @@ void main()
         gl_FragColor = vec4(color * colorIn, 1.);
         
     }else if (len < radius) {
-        float rotate_time = sin(time / 10.) * cos(time);
+        float rotate_time = sin(u_time / 10.) * cos(u_time);
         vUv *= mat2(cos(rotate_time), -sin(rotate_time), sin(rotate_time), cos(rotate_time));
         vec3 color = rgb(255, 255, 255);
         color = mix( color, adjustBrightness(colorIn, -0.1), fbm(vUv) );
         color = mix( color, colorIn, fbm(vUv + fbm(vUv)) );
-        color = mix( color, adjustBrightness(colorIn, -0.1), fbm(vUv + fbm(vUv +  fbm(vUv + time))) );
-        color *= fbm(vUv + fbm(vUv +  fbm(vUv + sin(time / 10.))));
+        color = mix( color, adjustBrightness(colorIn, -0.1), fbm(vUv + fbm(vUv +  fbm(vUv + u_time))) );
+        color *= fbm(vUv + fbm(vUv +  fbm(vUv + sin(u_time / 10.))));
 
         color *= light;
         gl_FragColor = vec4(color * colorIn, 1.);
