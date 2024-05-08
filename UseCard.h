@@ -24,6 +24,28 @@ map<enum CardType, string> cardTypeMap = {
 	{CardType_Joker, "Joker"}
 };
 
+string number_to_string(int number) {
+	if (number == 1) {
+		return "A";
+	}
+	else
+	if (number > 1 && number <= 10) {
+		return to_string(number);
+	}
+	else {
+		switch (number) {
+		case 11:
+			return "J";
+		case 12:
+			return "Q";
+		case 13:
+			return "K";
+		default:
+			return "None";
+		}
+	}
+}
+
 class UseCard {
 private:
 	// 扑克点数
@@ -43,6 +65,8 @@ private:
 	Text text, mid_text;
 	RenderTexture renderTexture, mid_renderTexture, cardRenderTexture;
 	FloatRect originalBounds;
+	Text hoverText;
+	bool hoverState = false;
 
 
 	int min(int x, int y) {
@@ -205,6 +229,9 @@ public:
 		originalBounds = completeCard.getGlobalBounds();
 		window.draw(completeCard);
 		//window.display();
+		if (hoverState) {
+			window.draw(hoverText);
+		}
 	}
 	void disappearCard() {
 		disappearClock.restart();
@@ -236,13 +263,23 @@ public:
 	bool Hover() {
 		Vector2i mousePos = Mouse::getPosition(window);
 
-
 		if (originalBounds.contains(mousePos.x, mousePos.y)) {
+			hoverText.setFont(font);
+			hoverText.setCharacterSize(24);
+
+			string cardTypeStr = cardTypeMap[cardType] + " " + number_to_string(number);
+			hoverText.setString(cardTypeStr);
+			hoverText.setFillColor(Color::Blue);
+			hoverText.setPosition(x, y - 50);
+			hoverState = true;
 			return true;
 		}
 		else {
+			hoverState = false;
 			return false;
 		}
+		
+
 	}
 
 	void scale(float x, float y) {

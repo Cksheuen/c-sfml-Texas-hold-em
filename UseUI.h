@@ -200,8 +200,11 @@ public:
         std::cout << "start room owner interface" << endl;
         float button_x = WINDOW_WIDTH / 2;
         float button_y = WINDOW_HEIGHT / 3;
+        cout << "room owner interface init start" << endl;
         UseButton* start_button = new UseButton(window, button_x, button_y, 100, "start game", normal_font);
         clock.restart();
+
+        cout << "room owner interface init complete" << endl;
 
         while (!*GameStart)
         {
@@ -213,9 +216,9 @@ public:
             start_button->hover();
             if (start_button->click()) {
                 *GameStart = true;
-                std::cout << "game start" << endl;
+                std::cout << "game_start" << endl;
                 Packet packet;
-                packet << "game start";
+                packet << "game_start";
                 server.SendToAllClients(packet);
             }
             start_button->show();
@@ -230,6 +233,7 @@ public:
 
             window.display();
         }
+        cout << "room owner interface end" << endl;
     };
     int ChooseRoomInterface(UseClient client, bool* search_room_complete, vector<int>& room_list) {
 
@@ -275,7 +279,6 @@ public:
                 room_button_list[i]->hover();
                 room_button_list[i]->show();
                 if (room_button_list[i]->click()) {
-                    std::cout << "choose join room " << room_list[i] << endl;
                     return room_list[i];
                     GameStart = true;
                     break;
@@ -306,14 +309,15 @@ public:
         UseButton give_up_button(window, WINDOW_WIDTH / 4 * 3, WINDOW_HEIGHT / 3, WINDOW_WIDTH / 8, "give up", normal_font);
         UseButton over_button(window, WINDOW_WIDTH / 3 * 2, WINDOW_HEIGHT / 2, WINDOW_WIDTH / 8, "over", normal_font);
 
-        window.clear(sf::Color::White);
         bg_shader.setUniform("init_complete", 1);
         clock.restart();
 
 
         while (true)
         {
+            window.clear(sf::Color::White);
             bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
+
 
             call_button.hover();
             fill_button.hover();
@@ -361,10 +365,13 @@ public:
                 }
             }
             
+            if (!show_cards.empty()) {
+                for (int i = 0; i < show_cards.size(); i++) {
+					cards[show_cards[i]]->drawCard();
+				}
+            }
 
-            for (int i = 0; i < 2; i++) {
-				cards[show_cards[i]]->drawCard();
-			}
+            
 
             call_button.show();
             fill_button.show();
@@ -375,9 +382,9 @@ public:
 	};
 
     void MoveCard(int cardIndex, float x, float y) {
-        if (find(show_cards.begin(), show_cards.end(), cardIndex) == show_cards.end())
-		    show_cards.push_back(cardIndex);
-        float endTime = clock.getElapsedTime().asSeconds() + 1;
+        //if (find(show_cards.begin(), show_cards.end(), cardIndex) == show_cards.end())
+		show_cards.push_back(cardIndex);
+        float endTime = clock.getElapsedTime().asSeconds() + ( x + y ) / 1000.;
         thread move_card_thread([=]() {
 			float start_x = 0;
 			float start_y = 0;
@@ -388,6 +395,7 @@ public:
                 cards[cardIndex]->setPos(start_x + dx * x, start_y + dy * y);
             }
 		});
+        move_card_thread.detach();
 	};
 
     void AddNewPublicCard(int cardIndex) {

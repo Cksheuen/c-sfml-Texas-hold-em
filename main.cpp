@@ -49,13 +49,11 @@ int main() {
     ServerOrClient ModeChoose = ui.GameMenu();
 
     if (ModeChoose == ServerOrClient::Server) {
-        std::cout << "start room owner interface" << endl;
         static bool GameStart = false;
         static int player_count = 0;
         vector<TcpSocket*> clients;
         UseServer server(&clients, &GameStart, &listener, [](vector<TcpSocket*>* clients) {
             player_count = clients->size();
-            std::cout << "player count: " << player_count << endl;
             });
 
         server.WaitForConnection();
@@ -63,10 +61,15 @@ int main() {
 
         ui.RoomOwnerInterface(server, &player_count, &GameStart);
 
+
         server.SendCardToAll([&ui](int x, int y) {
+            cout << "server to move card : " << x << " " << y << endl;
             ui.MoveCard(x, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3 * 2);
             ui.MoveCard(y, WINDOW_WIDTH / 3 * 2, WINDOW_HEIGHT / 3 * 2);
+            cout << "server move card done" << endl;
             });
+        cout << "server send card done" << endl;
+        while (1);
         server.RunTurns([&ui](int new_public_card) {
                 ui.AddNewPublicCard(new_public_card);
             },
@@ -85,10 +88,11 @@ int main() {
 
         int room_index = ui.ChooseRoomInterface(client, &search_room_complete, room_list);
         client.ChooseRoom(room_index);
-        ui.ClientGameInterface(client, room_index);
         client.ReceiveMessage([&ui](int x, int y) {
+            cout << "client to move card : " << x << " " << y << endl;
             ui.MoveCard(x, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3 * 2);
             ui.MoveCard(y, WINDOW_WIDTH / 3 * 2, WINDOW_HEIGHT / 3 * 2);
+            cout << "client move card done" << endl;
             },
             [&ui](int new_public_card) {
                 ui.AddNewPublicCard(new_public_card);
@@ -96,5 +100,8 @@ int main() {
             [&ui](bool my_turn) {
                 ui.SetMyTurn(my_turn);
             });
+        ui.ClientGameInterface(client, room_index);
+        
+        while (1);
     }
 }

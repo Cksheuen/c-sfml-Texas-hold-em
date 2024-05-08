@@ -5,7 +5,6 @@ private:
     Shader* bg_shader;
     vector<int>* room_list;
     bool* search_room_complete;
-    int OwnCard[2] = { -1 };
     int room_index;
 public:
     UseClient(vector<int>* room_list_set, Shader* bg_shader_set, bool* search_room_complete_set)
@@ -16,11 +15,10 @@ public:
                 sf::TcpSocket* socket = new TcpSocket;
                 if (socket->connect("localhost", port) == sf::Socket::Done) {
                     room_list->push_back(port);
-                    cout << "room " << port << " is available" << endl;
                     bg_shader->setUniform("percent", (float)((port - 3000.0) / 2000.0));
 
                     Packet packet;
-                    packet << "disconnect";
+                    packet << Socket::Disconnected;
                     socket->send(packet);
                     socket->disconnect();
                 }
@@ -41,15 +39,22 @@ public:
     void ReceiveMessage(function<void(int, int)> MoveCardFn,
         function<void(int)> AddNewPublicCardFn,
         function<void(bool)> SetMyTurn) {
-        	thread receive_message([=, &MoveCardFn, &AddNewPublicCardFn]() {
-                sf::TcpSocket* socket = new TcpSocket;
+            cout << "start receive message" << endl;
+            sf::TcpSocket* socket = new TcpSocket;
+            if (socket->connect("localhost", room_index)) {
+				cout << "connect success" << endl;
+            }
+            else {
+                cout << "connect fail" << endl;
+            }
+        	thread receive_message([&, MoveCardFn, AddNewPublicCardFn, SetMyTurn, socket]() {
 			    while (true) {
-					if (socket->connect("localhost", room_index) == sf::Socket::Done) {
 						Packet packet;
 						if (socket->receive(packet) == sf::Socket::Done) {
 							string message;
 							packet >> message;
 							cout << message << endl;
+                            int OwnCard[2];
                             if (message == "send_card") {
                                 packet >> OwnCard[0] >> OwnCard[1];
                                 cout << "receive card: " << OwnCard[0] << " " << OwnCard[1] << endl;
@@ -75,9 +80,11 @@ public:
 								packet >> lose_score;
 								cout << "lose: " << lose_score << endl;
 							}
+                            if (message == "game_start") {
+								cout << "game start" << endl;
+                            }
                             
 						}
-					}
 			    }
 			});
 		receive_message.detach();

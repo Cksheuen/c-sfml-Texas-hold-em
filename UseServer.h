@@ -7,6 +7,8 @@
 using namespace std;
 using namespace sf;
 
+#define MAX_PLAYERS 10
+
 enum HandType {
     HIGH_CARD,
     ONE_PAIR,
@@ -35,9 +37,9 @@ private:
     bool over_turn = false;
     int player_chips_value[4] = { 0 };
 
-    int turns_index[4] = { 0 };
-    bool player_give_up[4] = { false };
-    int player_cards[4][2];
+    int turns_index[MAX_PLAYERS] = { 0 };
+    bool player_give_up[MAX_PLAYERS] = { false };
+    int player_cards[MAX_PLAYERS][2];
     int normal_chips_value = 0;
 
     vector<int> public_card;
@@ -153,6 +155,12 @@ public:
     }
 
     void WaitForConnection() {
+        /*thread delete_disconnected_clients([&] {
+			while (!*GameStart) {
+				deleteDisconnectedClients();
+			}
+			});
+        delete_disconnected_clients.detach();*/
         thread wait_for_clients([&] {
             while (clients->size() < 4 && !*GameStart) {
                 deleteDisconnectedClients();
@@ -235,23 +243,32 @@ public:
     }
 
     void SendCardToAll(function<void(int, int)> MoveCardFn) {
+        cout << "generate index" << endl;
         GenerateTurnsIndex();
+        for (int i = 0; i < clients->size() + 1; i++) {
+            cout << turns_index[i] << " ";
+        }
+        cout << endl;
+        cout << "generate card" << endl;
         for (int i = 0; i < 2; i++) {
             for (int j = 0; j < clients->size() + 1; j++) {
 				player_cards[turns_index[j]][i] = RandomSelectCard();
 			}
         }
-
+        cout << "send card" << endl;
         for (int i = 0; i < clients->size() + 1; i++) {
-			Packet packet;
-			packet << "send_card" << player_cards[0] << player_cards[1];
-            if (turns_index[i] == clients->size()) {
+            cout << "player " << turns_index[i] << " has card " 
+                << player_cards[turns_index[i]][0] << player_cards[turns_index[i]][1] << endl;
+           
+            if (turns_index[i] == clients->size()) { 
+                cout << player_cards[turns_index[i]][0] << player_cards[turns_index[i]][1] << endl;
                 MoveCardFn(player_cards[turns_index[i]][0], player_cards[turns_index[i]][1]);
 				continue;
 			}
+            Packet packet;
+            packet << "send_card" << player_cards[turns_index[i]][0] << player_cards[turns_index[i]][1];
+
 			clients->at(turns_index[i])->send(packet);
-			cout << "send card to " << clients->at(i)->getRemoteAddress() << ": " 
-                << player_cards[0] << player_cards[1] << endl;
 		}
 	}
 
