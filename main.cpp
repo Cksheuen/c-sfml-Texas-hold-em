@@ -61,21 +61,8 @@ int main() {
 
         ui.RoomOwnerInterface(server, &player_count, &GameStart);
 
-
-        server.SendCardToAll([&ui](int x, int y) {
-            cout << "server to move card : " << x << " " << y << endl;
-            ui.MoveCard(x, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3 * 2);
-            ui.MoveCard(y, WINDOW_WIDTH / 3 * 2, WINDOW_HEIGHT / 3 * 2);
-            cout << "server move card done" << endl;
-            });
-        cout << "server send card done" << endl;
-        while (1);
-        server.RunTurns([&ui](int new_public_card) {
-                ui.AddNewPublicCard(new_public_card);
-            },
-            [&ui](bool my_turn) {
-                ui.SetMyTurn(my_turn);
-            });
+        cout << "Game Start" << endl;
+        ui.ServerGameInterface(server);
     } else if (ModeChoose == ServerOrClient::Client) {
         ui.RunProgressBar();
 
@@ -89,10 +76,8 @@ int main() {
         int room_index = ui.ChooseRoomInterface(client, &search_room_complete, room_list);
         client.ChooseRoom(room_index);
         client.ReceiveMessage([&ui](int x, int y) {
-            cout << "client to move card : " << x << " " << y << endl;
-            ui.MoveCard(x, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3 * 2);
-            ui.MoveCard(y, WINDOW_WIDTH / 3 * 2, WINDOW_HEIGHT / 3 * 2);
-            cout << "client move card done" << endl;
+            ui.AddMoveCard(x, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3 * 2, 0);
+            ui.AddMoveCard(y, WINDOW_WIDTH / 3 * 2, WINDOW_HEIGHT / 3 * 2, 0);
             },
             [&ui](int new_public_card) {
                 ui.AddNewPublicCard(new_public_card);

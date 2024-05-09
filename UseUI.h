@@ -17,7 +17,8 @@ private:
     UseCard* cards[52];
     UseChip* chips[8];
 
-    vector<int> show_cards;
+    vector<float> move_card_start_time, move_card_end_angle, move_card_time;
+    vector<Vector2i> move_card_dest;
 
     bool my_turn = false;
 
@@ -40,6 +41,7 @@ private:
     bool to_fill = false;
 
 public:
+    vector<int> show_cards;
     Shader bg_shader;
 
     UseUI(int widthSet, int heightSet, TcpListener* listenerSet)
@@ -95,7 +97,7 @@ public:
         int index = 0;
         for (CardType type = CardType_Heart; type < CardType_Joker; type = (CardType)(type + 1)) {
             for (int i = 1; i <= 13; i++) {
-                cards[index++] = new UseCard(window, i, type, 0, WINDOW_HEIGHT / 2, WINDOW_HEIGHT / 12, WINDOW_WIDTH / 6, tvt_font);
+                cards[index++] = new UseCard(window, i, type, 0, WINDOW_HEIGHT / 2, WINDOW_HEIGHT / 12, WINDOW_HEIGHT / 4, tvt_font);
 
                 BasicUI([&]() {
                     bg_shader.setUniform("percent", (float)(((type - CardType_Heart) * 13 + i) / 60.));
@@ -106,7 +108,7 @@ public:
     void InitChips() {
         int chips_value[8] = { 1, 2, 5, 10, 20, 25, 50, 100 };
         for (int i = 0; i < 8; i++) {
-            chips[i] = new UseChip(window, 100 + i * 100, 100, 50, chips_value[i], normal_font);
+            chips[i] = new UseChip(window, WINDOW_WIDTH / 10 * (i + 1), WINDOW_HEIGHT / 4, WINDOW_WIDTH / 12, chips_value[i], normal_font);
 
             BasicUI([&]() {
                 bg_shader.setUniform("percent", (float)((i + 53) / 60.));
@@ -289,6 +291,117 @@ public:
         }
     };
 
+    void ServerGameInterface(UseServer server) {
+        Packet packet;
+
+        UseButton call_button(window, WINDOW_WIDTH / 4, WINDOW_HEIGHT / 2, WINDOW_WIDTH / 8, "call", normal_font);
+        UseButton fill_button(window, WINDOW_WIDTH / 4 * 2, WINDOW_HEIGHT / 2, WINDOW_WIDTH / 8, "fill", normal_font);
+        UseButton back_button(window, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3, WINDOW_WIDTH / 8, "back", normal_font);
+        UseButton give_up_button(window, WINDOW_WIDTH / 4 * 3, WINDOW_HEIGHT / 3, WINDOW_WIDTH / 8, "give up", normal_font);
+        UseButton over_button(window, WINDOW_WIDTH / 3 * 2, WINDOW_HEIGHT / 2, WINDOW_WIDTH / 8, "over", normal_font);
+
+        bg_shader.setUniform("init_complete", 1);
+        clock.restart();
+
+        server.SendCardToAll([this](int x, int y) {
+            cout << "Send Card To Server Self" << endl;
+            AddMoveCard(x, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3 * 2, 0);
+            AddMoveCard(y, WINDOW_WIDTH / 3 * 2, WINDOW_HEIGHT / 3 * 2, 0);
+            });
+
+        server.RunTurns([this](int new_public_card) {
+            cout << "to run AddNewPublicCard" << endl;
+            AddNewPublicCard(new_public_card);
+            cout << "end AddNewPublicCard" << endl;
+            },
+            [this](bool my_turn) {
+                SetMyTurn(my_turn);
+            });
+
+        Text text;
+        text.setFont(normal_font);
+        text.setString("your turn");
+        text.setCharacterSize(24);
+        text.setFillColor(Color::Black);
+        text.setPosition(10, 10);
+
+        while (true)
+        {
+            window.clear(sf::Color::White);
+            bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
+            window.draw(bg_shape, bg_states);
+
+            call_button.hover();
+            fill_button.hover();
+            give_up_button.hover();
+            
+            if (my_turn) {
+                if (call_button.click()) {
+                    packet << "call";
+                    server.ReceiveOwnMessage(packet);
+                    std::cout << "call" << endl;
+                }
+                if (fill_button.click()) {
+                    packet << "fill";
+                    server.ReceiveOwnMessage(packet);
+                    std::cout << "start fill" << endl;
+
+                    to_fill = true;
+                }
+                if (give_up_button.click()) {
+                    packet << "give_up";
+                    server.ReceiveOwnMessage(packet);
+                    std::cout << "give_up" << endl;
+                }
+
+                if (to_fill) {
+                    for (int i = 0; i < 8; i++) {
+                        chips[i]->show();
+                        chips[i]->hover();
+                        if (chips[i]->click()) {
+                            packet << chips[i]->value;
+                            server.ReceiveOwnMessage(packet);
+                            std::cout << "fill " << chips[i]->value << endl;
+                        }
+                    }
+                    back_button.show();
+                    back_button.hover();
+                    if (back_button.click()) {
+                        to_fill = false;
+                        packet << "over_turn";
+                        server.ReceiveOwnMessage(packet);
+                        std::cout << "over_turn" << endl;
+                        my_turn = false;
+                    }
+                }
+            }
+
+            call_button.show();
+            fill_button.show();
+
+            if (show_cards.size() != 0) {
+                for (int i = 0; i < show_cards.size(); i++) {
+                    if (clock.getElapsedTime().asSeconds() < move_card_start_time[i] + move_card_time[i])
+                    {
+                        float time = clock.getElapsedTime().asSeconds() - move_card_start_time[i];
+                        float dx = smoothstep(0, move_card_time[i], time) * move_card_dest[i].x;
+                        float dy = smoothstep(0, move_card_time[i], time) * move_card_dest[i].y;
+                        float angle = smoothstep(0, 1, clock.getElapsedTime().asSeconds()) * move_card_end_angle[i];
+                        cards[show_cards[i]]->setPos(dx, dy);
+                        cards[show_cards[i]]->setRotation(angle);
+                    }
+                    cards[show_cards[i]]->drawCard();
+                }
+            }
+
+            if (my_turn) {
+				window.draw(text);
+			}
+
+            window.display();
+        }
+	};
+
     void ClientGameInterface(UseClient client, int room_index) {
         std::cout << "to join room " << room_index << endl;
         TcpSocket* socket = new TcpSocket;
@@ -312,17 +425,23 @@ public:
         bg_shader.setUniform("init_complete", 1);
         clock.restart();
 
+        Text text;
+        text.setFont(normal_font);
+        text.setString("your turn");
+        text.setCharacterSize(24);
+        text.setFillColor(Color::Black);
+        text.setPosition(10, 10);
 
         while (true)
         {
             window.clear(sf::Color::White);
             bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
-
+            window.draw(bg_shape, bg_states);
 
             call_button.hover();
             fill_button.hover();
             give_up_button.hover();
-            
+
             if (my_turn) {
                 if (call_button.click()) {
                     packet << "call";
@@ -364,43 +483,44 @@ public:
                     }
                 }
             }
-            
-            if (!show_cards.empty()) {
-                for (int i = 0; i < show_cards.size(); i++) {
-					cards[show_cards[i]]->drawCard();
-				}
-            }
-
-            
 
             call_button.show();
             fill_button.show();
 
-            window.draw(bg_shape, bg_states);
+            if (show_cards.size() != 0) {
+                for (int i = 0; i < show_cards.size(); i++) {
+                    if (clock.getElapsedTime().asSeconds() < move_card_start_time[i] + move_card_time[i])
+                    {
+                        float time = clock.getElapsedTime().asSeconds() - move_card_start_time[i];
+                        float dx = smoothstep(0, move_card_time[i], time) * move_card_dest[i].x;
+                        float dy = smoothstep(0, move_card_time[i], time) * move_card_dest[i].y;
+                        float angle = smoothstep(0, 1, clock.getElapsedTime().asSeconds()) * move_card_end_angle[i];
+                        cards[show_cards[i]]->setPos(dx, dy);
+                        cards[show_cards[i]]->setRotation(angle);
+                    }
+                    cards[show_cards[i]]->drawCard();
+                }
+            }
+
+            if (my_turn) {
+                window.draw(text);
+            }
+
             window.display();
         }
-	};
+    };
 
-    void MoveCard(int cardIndex, float x, float y) {
-        //if (find(show_cards.begin(), show_cards.end(), cardIndex) == show_cards.end())
+    void AddMoveCard(int cardIndex, float x, float y, float angle) {
 		show_cards.push_back(cardIndex);
-        float endTime = clock.getElapsedTime().asSeconds() + ( x + y ) / 1000.;
-        thread move_card_thread([=]() {
-			float start_x = 0;
-			float start_y = 0;
-            while (clock.getElapsedTime().asSeconds() < endTime)
-            {
-                float dx = smoothstep(0, 1, clock.getElapsedTime().asSeconds()) * (x - start_x);
-                float dy = smoothstep(0, 1, clock.getElapsedTime().asSeconds()) * (y - start_y);
-                cards[cardIndex]->setPos(start_x + dx * x, start_y + dy * y);
-            }
-		});
-        move_card_thread.detach();
+        float move_time = (x + y) / 700.;
+        move_card_start_time.push_back(clock.getElapsedTime().asSeconds());
+        move_card_time.push_back(move_time);
+        move_card_dest.push_back(Vector2i(x, y));
+        move_card_end_angle.push_back(angle);
 	};
 
     void AddNewPublicCard(int cardIndex) {
-		show_cards.push_back(cardIndex);
-        MoveCard(cardIndex, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3);
+        AddMoveCard(cardIndex, WINDOW_WIDTH / 7 * show_cards.size(), WINDOW_HEIGHT / 3, 0);
 	};
 
     void SetMyTurn(bool my_turn_set) {
