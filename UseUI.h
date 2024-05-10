@@ -198,7 +198,7 @@ public:
         }
     };
 
-    void RoomOwnerInterface(UseServer server, int* player_count, bool* GameStart) {
+    void RoomOwnerInterface(UseServer& server, int* player_count, bool* GameStart) {
         std::cout << "start room owner interface" << endl;
         float button_x = WINDOW_WIDTH / 2;
         float button_y = WINDOW_HEIGHT / 3;
@@ -210,6 +210,7 @@ public:
 
         while (!*GameStart)
         {
+            //server.ReceiveMessageInWhile();
             window.clear(sf::Color::White);
 
             bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
@@ -291,7 +292,7 @@ public:
         }
     };
 
-    void ServerGameInterface(UseServer server) {
+    void ServerGameInterface(UseServer& server) {
         Packet packet;
 
         UseButton call_button(window, WINDOW_WIDTH / 4, WINDOW_HEIGHT / 2, WINDOW_WIDTH / 8, "call", normal_font);
@@ -378,6 +379,7 @@ public:
 
             call_button.show();
             fill_button.show();
+            give_up_button.show();
 
             if (show_cards.size() != 0) {
                 for (int i = 0; i < show_cards.size(); i++) {
@@ -441,6 +443,8 @@ public:
             call_button.hover();
             fill_button.hover();
             give_up_button.hover();
+            back_button.hover();
+            over_button.hover();
 
             if (my_turn) {
                 if (call_button.click()) {
@@ -486,6 +490,10 @@ public:
 
             call_button.show();
             fill_button.show();
+            give_up_button.show();
+            back_button.show();
+            over_button.show();
+
 
             if (show_cards.size() != 0) {
                 for (int i = 0; i < show_cards.size(); i++) {

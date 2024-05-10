@@ -52,17 +52,17 @@ int main() {
         static bool GameStart = false;
         static int player_count = 0;
         vector<TcpSocket*> clients;
-        UseServer server(&clients, &GameStart, &listener, [](vector<TcpSocket*>* clients) {
+        unique_ptr<UseServer> server = make_unique<UseServer>(&clients, &GameStart, &listener, [](vector<TcpSocket*>* clients) {
             player_count = clients->size();
             });
 
-        server.WaitForConnection();
-        server.ReceiveMessage();
+        server->WaitForConnection();
 
-        ui.RoomOwnerInterface(server, &player_count, &GameStart);
+        ui.RoomOwnerInterface(*server, &player_count, &GameStart);
 
         cout << "Game Start" << endl;
-        ui.ServerGameInterface(server);
+        server->ReceiveMessage();
+        ui.ServerGameInterface(*server);
     } else if (ModeChoose == ServerOrClient::Client) {
         ui.RunProgressBar();
 

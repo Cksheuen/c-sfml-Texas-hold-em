@@ -3,6 +3,8 @@
 #include <SFML/Network.hpp>
 #include <thread>
 #include <functional>
+#include <random>
+#include <mutex>
 
 using namespace std;
 using namespace sf;
@@ -45,16 +47,14 @@ private:
     vector<int> public_card;
     int round_open_card_number[3] = { 3, 1, 1 };
 
-    // 计算一手牌的价值
+    mutex mtx;
+
     int CalculateHandValue(const vector<int>& hand) {
-        // 排序手中的牌，使得牌面从小到大排列
         vector<int> sorted_hand = hand;
         sort(sorted_hand.begin(), sorted_hand.end());
 
-        // 计算各种牌型的价值
         int hand_value = 0;
 
-        // 判断是否是同花
         bool is_flush = true;
         for (int i = 1; i < sorted_hand.size(); ++i) {
             if (sorted_hand[i] / 13 != sorted_hand[0] / 13) {
@@ -63,7 +63,6 @@ private:
             }
         }
 
-        // 判断是否是顺子
         bool is_straight = true;
         for (int i = 1; i < sorted_hand.size(); ++i) {
             if (sorted_hand[i] % 13 != (sorted_hand[i - 1] % 13) + 1) {
@@ -72,27 +71,21 @@ private:
             }
         }
 
-        // 计算各种牌型的价值
         if (is_flush && is_straight) {
-            // 同花顺
             hand_value = STRAIGHT_FLUSH;
         }
         else if (is_straight) {
-            // 顺子
             hand_value = STRAIGHT;
         }
         else if (is_flush) {
-            // 同花
             hand_value = FLUSH;
         }
         else {
-            // 计算其他牌型
-            vector<int> card_count(13, 0); // 统计每种牌面的数量
+            vector<int> card_count(13, 0);
             for (int card : sorted_hand) {
                 card_count[card % 13]++;
             }
 
-            // 计算相同牌面的数量
             int pair_count = 0;
             int three_of_a_kind_value = -1;
             int four_of_a_kind_value = -1;
@@ -109,27 +102,21 @@ private:
             }
 
             if (pair_count == 1 && three_of_a_kind_value != -1) {
-                // 一对和三条组合
                 hand_value = FULL_HOUSE;
             }
             else if (pair_count == 1) {
-                // 一对
                 hand_value = ONE_PAIR;
             }
             else if (pair_count == 2) {
-                // 两对
                 hand_value = TWO_PAIR;
             }
             else if (three_of_a_kind_value != -1) {
-                // 三条
                 hand_value = THREE_OF_A_KIND;
             }
             else if (four_of_a_kind_value != -1) {
-                // 四条
                 hand_value = FOUR_OF_A_KIND;
             }
             else {
-                // 高牌
                 hand_value = HIGH_CARD;
             }
         }
@@ -185,35 +172,35 @@ public:
 
     void ReceiveMessage() {
         std::thread receive_message([&] {
-			while (!*GameStart) {
+			while (true) {
                 int index = 0;
-				for (TcpSocket* client : *clients) {
-					Packet packet;
-					if (client->receive(packet) == Socket::Done) {
-						string message;
-						packet >> message;
-						cout << "receive message from " << client->getRemoteAddress() << ": " << message << endl;
-                        if (turn == index) {
-                            if (message == "over_turn" || message == "call") {
-                                over_turn = true;
-                                if (message == "call") {
-                                    player_chips_value[turns_index[turn]] = normal_chips_value;
-                                }
-                            }
-                            else if (message == "fill") {
-                                int chipValue;
-                                packet >> chipValue;
-                                cout << "receive chip value: " << chipValue << endl;
-                                player_chips_value[turns_index[turn]] = +chipValue;
-                                normal_chips_value += chipValue;
-                            }
-                            else if (message == "give_up") {
-                                player_give_up[turns_index[turn]] = true;
+                if (turn == clients->size() + 1 || turn == -1) continue;
+				TcpSocket *client = clients->at(turns_index[index]);
+                Packet packet;
+                if (client->receive(packet) == Socket::Done) {
+                    string message;
+                    packet >> message;
+                    cout << "receive message from " << client->getRemoteAddress() << ": " << message << endl;
+                    if (turn == index) {
+                        if (message == "over_turn" || message == "call") {
+                            lock_guard<mutex> lock(mtx);
+                            over_turn = true;
+                            if (message == "call") {
+                                player_chips_value[turns_index[turn]] = normal_chips_value;
                             }
                         }
-					}
-                    index++;
-				}
+                        else if (message == "fill") {
+                            int chipValue;
+                            packet >> chipValue;
+                            cout << "receive chip value: " << chipValue << endl;
+                            player_chips_value[turns_index[turn]] = +chipValue;
+                            normal_chips_value += chipValue;
+                        }
+                        else if (message == "give_up") {
+                            player_give_up[turns_index[turn]] = true;
+                        }
+                    }
+                }
 			}
 			});
 		receive_message.detach();
@@ -223,7 +210,9 @@ public:
         string message;
         packet >> message;
         if (message == "over_turn" || message == "call") {
+            lock_guard<mutex> lock(mtx);
             over_turn = true;
+            cout << "turn the over_turn to true self" << endl;
             if (message == "call") {
                 player_chips_value[turns_index[turn]] = normal_chips_value;
             }
@@ -241,16 +230,19 @@ public:
     }
 
     int RandomSelectCard() {
-        int selectCard = rand() % 52;
-        int suit = selectCard / 13;
-        int number = selectCard % 13;
-        if (card[suit][number] == 0) {
-			card[suit][number] = 1;
-			return selectCard;
-		}
-		else {
-			return RandomSelectCard();
-		}
+        random_device rd;
+        mt19937 gen(rd());
+        uniform_int_distribution<> distrib(0, 51);
+
+        while (true) {
+            int selectCard = distrib(gen);
+            int suit = selectCard / 13;
+            int number = selectCard % 13;
+            if (card[suit][number] == 0) {
+                card[suit][number] = 1;
+                return selectCard;
+            }
+        }
     }
 
 
@@ -331,17 +323,23 @@ public:
 
                 for (int i = 0; i < clients->size() + 1; i++) {
                     if (!player_give_up[turns_index[i]]) {
+                        cout << "player " << turns_index[i] << " turn" << endl;
                         turn = turns_index[i];
                         if (turn == clients->size()) {
                             SetMyTurn(true);
-                            continue;
                         }
-                        Packet packet;
-                        packet << "your_turn";
-                        clients->at(turn)->send(packet);
+                        else {
+                            Packet packet;
+                            packet << "your_turn";
+                            clients->at(turn)->send(packet);
+                        }
                         over_turn = false;
+                        cout << "wait for over from player " << turn << endl;
+                        unique_lock<mutex> lock(mtx);
                         while (!over_turn) {
-                            // wait for over
+							lock.unlock();
+							this_thread::sleep_for(chrono::milliseconds(100));
+							lock.lock();
                         }
                     }
                 }
