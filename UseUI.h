@@ -22,6 +22,8 @@ private:
 
     bool my_turn = false;
 
+    mutex my_turn_mtx;
+
     template<class T>
     const T& clamp(const T& v, const T& lo, const T& hi) {
         assert(!(hi < lo));
@@ -336,43 +338,50 @@ public:
             fill_button.hover();
             give_up_button.hover();
             
-            if (my_turn) {
-                if (call_button.click()) {
-                    packet << "call";
-                    server.ReceiveOwnMessage(packet);
-                    std::cout << "call" << endl;
-                }
-                if (fill_button.click()) {
-                    packet << "fill";
-                    server.ReceiveOwnMessage(packet);
-                    std::cout << "start fill" << endl;
-
-                    to_fill = true;
-                }
-                if (give_up_button.click()) {
-                    packet << "give_up";
-                    server.ReceiveOwnMessage(packet);
-                    std::cout << "give_up" << endl;
-                }
-
-                if (to_fill) {
-                    for (int i = 0; i < 8; i++) {
-                        chips[i]->show();
-                        chips[i]->hover();
-                        if (chips[i]->click()) {
-                            packet << chips[i]->value;
-                            server.ReceiveOwnMessage(packet);
-                            std::cout << "fill " << chips[i]->value << endl;
-                        }
-                    }
-                    back_button.show();
-                    back_button.hover();
-                    if (back_button.click()) {
-                        to_fill = false;
-                        packet << "over_turn";
+            {
+                lock_guard<mutex> lock(my_turn_mtx);
+                if (my_turn) {
+                    if (call_button.click()) {
+                        packet << "call";
                         server.ReceiveOwnMessage(packet);
-                        std::cout << "over_turn" << endl;
+                        std::cout << "call" << endl;
+
                         my_turn = false;
+                    }
+                    if (fill_button.click()) {
+                        packet << "fill";
+                        server.ReceiveOwnMessage(packet);
+                        std::cout << "start fill" << endl;
+
+                        to_fill = true;
+                    }
+                    if (give_up_button.click()) {
+                        packet << "give_up";
+                        server.ReceiveOwnMessage(packet);
+                        std::cout << "give_up" << endl;
+
+                        my_turn = false;
+                    }
+
+                    if (to_fill) {
+                        for (int i = 0; i < 8; i++) {
+                            chips[i]->show();
+                            chips[i]->hover();
+                            if (chips[i]->click()) {
+                                packet << chips[i]->value;
+                                server.ReceiveOwnMessage(packet);
+                                std::cout << "fill " << chips[i]->value << endl;
+                            }
+                        }
+                        back_button.show();
+                        back_button.hover();
+                        if (back_button.click()) {
+                            to_fill = false;
+                            packet << "over_turn";
+                            server.ReceiveOwnMessage(packet);
+                            std::cout << "over_turn" << endl;
+                            my_turn = false;
+                        }
                     }
                 }
             }
@@ -447,10 +456,13 @@ public:
             over_button.hover();
 
             if (my_turn) {
+                cout << "my turn" << endl;
                 if (call_button.click()) {
                     packet << "call";
                     socket->send(packet);
                     std::cout << "call" << endl;
+
+                    my_turn = false;
                 }
                 if (fill_button.click()) {
                     packet << "fill";
@@ -463,6 +475,8 @@ public:
                     packet << "give_up";
                     socket->send(packet);
                     std::cout << "give_up" << endl;
+
+                    my_turn = false;
                 }
 
                 if (to_fill) {
@@ -486,6 +500,7 @@ public:
                         my_turn = false;
                     }
                 }
+                window.draw(text);
             }
 
             call_button.show();
@@ -510,10 +525,6 @@ public:
                 }
             }
 
-            if (my_turn) {
-                window.draw(text);
-            }
-
             window.display();
         }
     };
@@ -528,11 +539,13 @@ public:
 	};
 
     void AddNewPublicCard(int cardIndex) {
-        AddMoveCard(cardIndex, WINDOW_WIDTH / 7 * show_cards.size(), WINDOW_HEIGHT / 3, 0);
+        AddMoveCard(cardIndex, WINDOW_WIDTH / 8 * show_cards.size(), WINDOW_HEIGHT / 3, 0);
 	};
 
     void SetMyTurn(bool my_turn_set) {
+        lock_guard<mutex> lock(my_turn_mtx);
 		my_turn = my_turn_set;
+        cout << "set my_turn: " << my_turn << endl;
 	};
 
 };

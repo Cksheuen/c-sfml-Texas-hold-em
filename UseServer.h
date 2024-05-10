@@ -39,7 +39,7 @@ private:
     bool over_turn = false;
     int player_chips_value[4] = { 0 };
 
-    int turns_index[MAX_PLAYERS] = { 0 };
+    vector<int> turns_index;
     bool player_give_up[MAX_PLAYERS] = { false };
     int player_cards[MAX_PLAYERS][2];
     int normal_chips_value = 0;
@@ -142,12 +142,6 @@ public:
     }
 
     void WaitForConnection() {
-        /*thread delete_disconnected_clients([&] {
-			while (!*GameStart) {
-				deleteDisconnectedClients();
-			}
-			});
-        delete_disconnected_clients.detach();*/
         thread wait_for_clients([&] {
             while (clients->size() < 4 && !*GameStart) {
                 deleteDisconnectedClients();
@@ -173,32 +167,32 @@ public:
     void ReceiveMessage() {
         std::thread receive_message([&] {
 			while (true) {
-                int index = 0;
-                if (turn == clients->size() + 1 || turn == -1) continue;
-				TcpSocket *client = clients->at(turns_index[index]);
+                if (turn > clients->size() || turn < 0) {
+                    continue;
+                }
+                cout << "wait for message from player " << turn << endl;
+				TcpSocket *client = clients->at(turn);
                 Packet packet;
                 if (client->receive(packet) == Socket::Done) {
                     string message;
                     packet >> message;
                     cout << "receive message from " << client->getRemoteAddress() << ": " << message << endl;
-                    if (turn == index) {
-                        if (message == "over_turn" || message == "call") {
-                            lock_guard<mutex> lock(mtx);
-                            over_turn = true;
-                            if (message == "call") {
-                                player_chips_value[turns_index[turn]] = normal_chips_value;
-                            }
-                        }
-                        else if (message == "fill") {
-                            int chipValue;
-                            packet >> chipValue;
-                            cout << "receive chip value: " << chipValue << endl;
-                            player_chips_value[turns_index[turn]] = +chipValue;
-                            normal_chips_value += chipValue;
+                    if (message == "over_turn" || message == "call" || message == "give_up") {
+                        lock_guard<mutex> lock(mtx);
+                        over_turn = true;
+                        if (message == "call") {
+                            player_chips_value[turn] = normal_chips_value;
                         }
                         else if (message == "give_up") {
-                            player_give_up[turns_index[turn]] = true;
+                            player_give_up[turn] = true;
                         }
+                    }
+                    else if (message == "fill") {
+                        int chipValue;
+                        packet >> chipValue;
+                        cout << "receive chip value: " << chipValue << endl;
+                        player_chips_value[turn] = +chipValue;
+                        normal_chips_value += chipValue;
                     }
                 }
 			}
@@ -206,26 +200,67 @@ public:
 		receive_message.detach();
     }
 
+    void ReceiveMessageFrom(int index) {
+        std::thread receive_message([&] {
+            while (true) {
+                if (index > clients->size() || index < 0) {
+                    continue;
+                }
+                cout << "wait for message from player " << index << endl;
+                TcpSocket* client = clients->at(index);
+                Packet packet;
+                if (client->receive(packet) == Socket::Done) {
+                    string message;
+                    packet >> message;
+                    cout << "receive message from " << client->getRemoteAddress() << ": " << message << endl;
+                    if (message == "over_turn" || message == "call" || message == "give_up") {
+                        lock_guard<mutex> lock(mtx);
+                        over_turn = true;
+                        if (message == "call") {
+                            player_chips_value[index] = normal_chips_value;
+                        }
+                        else if (message == "give_up") {
+                            player_give_up[index] = true;
+                        }
+                        break;
+                    }
+                    else if (message == "fill") {
+                        int chipValue;
+                        packet >> chipValue;
+                        cout << "receive chip value: " << chipValue << endl;
+                        player_chips_value[index] = +chipValue;
+                        normal_chips_value += chipValue;
+                    }
+                }
+            }
+            });
+        receive_message.detach();
+    }
+
     void ReceiveOwnMessage(Packet packet) {
         string message;
         packet >> message;
-        if (message == "over_turn" || message == "call") {
+        cout << "receive message from self: " << message << endl;
+        if (message == "over_turn" || message == "call" || message == "give_up") {
             lock_guard<mutex> lock(mtx);
             over_turn = true;
             cout << "turn the over_turn to true self" << endl;
             if (message == "call") {
-                player_chips_value[turns_index[turn]] = normal_chips_value;
+                player_chips_value[turn] = normal_chips_value;
+            }
+            else if (message == "give_up") {
+                player_give_up[turn] = true;
             }
         }
         else if (message == "fill") {
             int chipValue;
             packet >> chipValue;
             cout << "receive chip value: " << chipValue << endl;
-            player_chips_value[turns_index[turn]] = +chipValue;
+            player_chips_value[turn] = +chipValue;
             normal_chips_value += chipValue;
         }
         else if (message == "give_up") {
-            player_give_up[turns_index[turn]] = true;
+            player_give_up[turn] = true;
         }
     }
 
@@ -250,7 +285,8 @@ public:
         for (int i = 0; i < clients->size(); i++) {
             turns_index[i] = i;
         }
-        turns_index[clients->size()] = clients->size();
+        
+        turns_index.push_back(clients->size());
         for (int i = 0; i < clients->size(); i++) {
             int randomIndex = rand() % (clients->size() + 1);
             int temp = turns_index[i];
@@ -310,6 +346,12 @@ public:
         function<void(bool)> SetMyTurn) {
         thread run_turns_thread([&, AddNewPublicCardFn = move(AddNewPublicCardFn),
             SetMyTurn = move(SetMyTurn)] {
+            cout << "we have " << clients->size() + 1 << " players" << endl;
+            cout << " they are ";
+            for (int i = 0; i < clients->size() + 1; i++) {
+				cout << turns_index[i] << " ";
+			}
+            cout << endl;
             while (round < 3) {
                 cout << "round " << round << endl;
 
@@ -321,26 +363,28 @@ public:
 				    }
 
 
-                for (int i = 0; i < clients->size() + 1; i++) {
+                for (int i = 0; i < turns_index.size(); i++) {
                     if (!player_give_up[turns_index[i]]) {
-                        cout << "player " << turns_index[i] << " turn" << endl;
                         turn = turns_index[i];
                         if (turn == clients->size()) {
                             SetMyTurn(true);
                         }
                         else {
+                            ReceiveMessageFrom(turn);
                             Packet packet;
                             packet << "your_turn";
                             clients->at(turn)->send(packet);
                         }
                         over_turn = false;
                         cout << "wait for over from player " << turn << endl;
+                        
                         unique_lock<mutex> lock(mtx);
                         while (!over_turn) {
 							lock.unlock();
 							this_thread::sleep_for(chrono::milliseconds(100));
 							lock.lock();
                         }
+                        cout << "player " << turn << " is over" << endl;
                     }
                 }
                 round++;
@@ -348,7 +392,7 @@ public:
             int winner = -1;
             int scores[4];
             int winner_score = 0;
-            for (int i = 0; i < clients->size() + 1; i++) {
+            for (int i = 0; i < turns_index.size(); i++) {
                 winner_score += player_chips_value[turns_index[i]];
                 if (!player_give_up[turns_index[i]]) {
                     vector<int> hand;
@@ -369,7 +413,7 @@ public:
             Packet packet;
             packet << "winner " << winner;
             SendToAllClients(packet);
-            for (int i = 0; i < clients->size() + 1; i++) {
+            for (int i = 0; i < turns_index.size(); i++) {
                 if (turns_index[i] != winner) {
                     packet << "lose " << player_chips_value[turns_index[i]];
                     clients->at(turns_index[i])->send(packet);

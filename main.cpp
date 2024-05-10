@@ -61,7 +61,7 @@ int main() {
         ui.RoomOwnerInterface(*server, &player_count, &GameStart);
 
         cout << "Game Start" << endl;
-        server->ReceiveMessage();
+        //server->ReceiveMessage();
         ui.ServerGameInterface(*server);
     } else if (ModeChoose == ServerOrClient::Client) {
         ui.RunProgressBar();
