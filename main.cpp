@@ -57,11 +57,10 @@ int main() {
             });
 
         server->WaitForConnection();
-
         ui.RoomOwnerInterface(*server, &player_count, &GameStart);
 
         cout << "Game Start" << endl;
-        //server->ReceiveMessage();
+        
         ui.ServerGameInterface(*server);
     } else if (ModeChoose == ServerOrClient::Client) {
         ui.RunProgressBar();
@@ -80,6 +79,7 @@ int main() {
             ui.AddMoveCard(y, WINDOW_WIDTH / 3 * 2, WINDOW_HEIGHT / 3 * 2, 0);
             },
             [&ui](int new_public_card) {
+                cout << "new public card: " << new_public_card << endl;
                 ui.AddNewPublicCard(new_public_card);
             },
             [&ui](bool my_turn) {

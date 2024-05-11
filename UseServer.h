@@ -164,50 +164,23 @@ public:
         wait_for_clients.detach();
     }
 
-    void ReceiveMessage() {
-        std::thread receive_message([&] {
-			while (true) {
-                if (turn > clients->size() || turn < 0) {
-                    continue;
-                }
-                cout << "wait for message from player " << turn << endl;
-				TcpSocket *client = clients->at(turn);
-                Packet packet;
-                if (client->receive(packet) == Socket::Done) {
-                    string message;
-                    packet >> message;
-                    cout << "receive message from " << client->getRemoteAddress() << ": " << message << endl;
-                    if (message == "over_turn" || message == "call" || message == "give_up") {
-                        lock_guard<mutex> lock(mtx);
-                        over_turn = true;
-                        if (message == "call") {
-                            player_chips_value[turn] = normal_chips_value;
-                        }
-                        else if (message == "give_up") {
-                            player_give_up[turn] = true;
-                        }
-                    }
-                    else if (message == "fill") {
-                        int chipValue;
-                        packet >> chipValue;
-                        cout << "receive chip value: " << chipValue << endl;
-                        player_chips_value[turn] = +chipValue;
-                        normal_chips_value += chipValue;
-                    }
-                }
-			}
-			});
-		receive_message.detach();
-    }
+    void ReceiveMessageFromAsync(int index) {
+        if (index > clients->size() || index < 0) {
+            return;
+        }
+        cout << "wait for message from player " << index << endl;
+        TcpSocket* client = clients->at(index);
+        Packet sendPacket;
+        sendPacket << "I'm wating for your answer";
+        client->send(sendPacket);
 
-    void ReceiveMessageFrom(int index) {
-        std::thread receive_message([&] {
+        Packet responsePacket;
+        if (client->receive(responsePacket) == Socket::Done) {
+            string responseMessage;
+            responsePacket >> responseMessage;
+            cout << "Received response from " << client->getRemoteAddress() << ": " << responseMessage << endl;
+
             while (true) {
-                if (index > clients->size() || index < 0) {
-                    continue;
-                }
-                cout << "wait for message from player " << index << endl;
-                TcpSocket* client = clients->at(index);
                 Packet packet;
                 if (client->receive(packet) == Socket::Done) {
                     string message;
@@ -233,8 +206,10 @@ public:
                     }
                 }
             }
-            });
-        receive_message.detach();
+            
+        }
+        
+        
     }
 
     void ReceiveOwnMessage(Packet packet) {
@@ -283,7 +258,7 @@ public:
 
     void GenerateTurnsIndex() {
         for (int i = 0; i < clients->size(); i++) {
-            turns_index[i] = i;
+            turns_index.push_back(i);
         }
         
         turns_index.push_back(clients->size());
@@ -338,7 +313,7 @@ public:
         public_card.push_back(new_card);
         cout << "public card size: " << public_card.size() << endl;
         Packet packet;
-        packet << "public_card " << new_card;
+        packet << "public_card" << new_card;
         SendToAllClients(packet);
     }
 
@@ -368,23 +343,25 @@ public:
                         turn = turns_index[i];
                         if (turn == clients->size()) {
                             SetMyTurn(true);
+                            over_turn = false;
+                            cout << "wait for over from player " << turn << endl;
+
+                            unique_lock<mutex> lock(mtx);
+                            while (!over_turn) {
+                                lock.unlock();
+                                this_thread::sleep_for(chrono::milliseconds(100));
+                                lock.lock();
+                            }
+                            cout << "player " << turn << " is over" << endl;
                         }
                         else {
-                            ReceiveMessageFrom(turn);
+                            
                             Packet packet;
                             packet << "your_turn";
                             clients->at(turn)->send(packet);
+                            ReceiveMessageFromAsync(turn);
+                            cout << "received over" << endl;
                         }
-                        over_turn = false;
-                        cout << "wait for over from player " << turn << endl;
-                        
-                        unique_lock<mutex> lock(mtx);
-                        while (!over_turn) {
-							lock.unlock();
-							this_thread::sleep_for(chrono::milliseconds(100));
-							lock.lock();
-                        }
-                        cout << "player " << turn << " is over" << endl;
                     }
                 }
                 round++;

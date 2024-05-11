@@ -41,6 +41,8 @@ private:
     int WINDOW_WIDTH, WINDOW_HEIGHT;
     int init_complete = 0;
     bool to_fill = false;
+    TcpSocket* socket = new TcpSocket;
+    int join_room_index = -1;
 
 public:
     vector<int> show_cards;
@@ -415,17 +417,6 @@ public:
 
     void ClientGameInterface(UseClient client, int room_index) {
         std::cout << "to join room " << room_index << endl;
-        TcpSocket* socket = new TcpSocket;
-        if (socket->connect("localhost", room_index) == sf::Socket::Done) {
-            std::cout << "connect to room " << room_index << " successfully" << endl;
-            Packet packet;
-            packet << "hello hello";
-            socket->send(packet);
-        }
-        else {
-            std::cout << "connect to room " << room_index << " failed" << endl;
-        }
-        Packet packet;
 
         UseButton call_button(window, WINDOW_WIDTH / 4, WINDOW_HEIGHT / 2, WINDOW_WIDTH / 8, "call", normal_font);
         UseButton fill_button(window, WINDOW_WIDTH / 4 * 2, WINDOW_HEIGHT / 2, WINDOW_WIDTH / 8, "fill", normal_font);
@@ -456,24 +447,26 @@ public:
             over_button.hover();
 
             if (my_turn) {
-                cout << "my turn" << endl;
                 if (call_button.click()) {
+                    Packet packet;
                     packet << "call";
-                    socket->send(packet);
+                    client.SendPacketToServer(packet);
                     std::cout << "call" << endl;
 
                     my_turn = false;
                 }
                 if (fill_button.click()) {
+                    Packet packet;
                     packet << "fill";
-                    socket->send(packet);
+                    client.SendPacketToServer(packet);
                     std::cout << "start fill" << endl;
 
                     to_fill = true;
                 }
                 if (give_up_button.click()) {
+                    Packet packet;
                     packet << "give_up";
-                    socket->send(packet);
+                    client.SendPacketToServer(packet);
                     std::cout << "give_up" << endl;
 
                     my_turn = false;
@@ -485,8 +478,9 @@ public:
                         chips[i]->show();
                         chips[i]->hover();
                         if (chips[i]->click()) {
+                            Packet packet;
                             packet << chips[i]->value;
-                            socket->send(packet);
+                            client.SendPacketToServer(packet);
                             std::cout << "fill " << chips[i]->value << endl;
                         }
                     }
@@ -494,8 +488,9 @@ public:
                     back_button.hover();
                     if (back_button.click()) {
                         to_fill = false;
+                        Packet packet;
                         packet << "over_turn";
-                        socket->send(packet);
+                        client.SendPacketToServer(packet);
                         std::cout << "over_turn" << endl;
                         my_turn = false;
                     }
@@ -539,6 +534,7 @@ public:
 	};
 
     void AddNewPublicCard(int cardIndex) {
+        cout << "to add new public card" << endl;
         AddMoveCard(cardIndex, WINDOW_WIDTH / 8 * show_cards.size(), WINDOW_HEIGHT / 3, 0);
 	};
 

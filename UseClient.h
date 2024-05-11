@@ -6,6 +6,7 @@ private:
     vector<int>* room_list;
     bool* search_room_complete;
     int room_index;
+    TcpSocket* socket;
 public:
     UseClient(vector<int>* room_list_set, Shader* bg_shader_set, bool* search_room_complete_set)
         : room_list(room_list_set), bg_shader(bg_shader_set), search_room_complete(search_room_complete_set) {};
@@ -40,20 +41,25 @@ public:
         function<void(int)> AddNewPublicCardFn,
         function<void(bool)> SetMyTurn) {
             cout << "start receive message" << endl;
-            sf::TcpSocket* socket = new TcpSocket;
+            socket = new TcpSocket;
             if (socket->connect("localhost", room_index)) {
 				cout << "connect success" << endl;
             }
             else {
                 cout << "connect fail" << endl;
             }
-        	thread receive_message([&, MoveCardFn, AddNewPublicCardFn, SetMyTurn, socket]() {
+        	thread receive_message([&, MoveCardFn = move(MoveCardFn),
+                AddNewPublicCardFn = move(AddNewPublicCardFn),
+                SetMyTurn = move(SetMyTurn), this]() {
 			    while (true) {
 						Packet packet;
 						if (socket->receive(packet) == sf::Socket::Done) {
 							string message;
 							packet >> message;
 							cout << message << endl;
+                            Packet packetSendBack;
+                            packetSendBack << "received";
+                            socket->send(packetSendBack);
                             int OwnCard[2];
                             if (message == "send_card") {
                                 packet >> OwnCard[0] >> OwnCard[1];
@@ -61,13 +67,13 @@ public:
                                 MoveCardFn(OwnCard[0], OwnCard[1]);
                             }
                             if (message == "public_card") {
-								cout << "public_card" << endl;
                                 int new_public_card;
                                 packet >> new_public_card;
+                                cout << "public_card" << new_public_card << endl;
                                 AddNewPublicCardFn(new_public_card);
 							}
                             if (message == "your_turn") {
-								cout << "your turn" << endl;
+								cout << "it's my turn now" << endl;
 								SetMyTurn(true);
 							}
                             if (message == "winner") {
@@ -89,4 +95,8 @@ public:
 			});
 		receive_message.detach();
     }
+
+    void SendPacketToServer(Packet packet) {
+		socket->send(packet);
+	}
 };
