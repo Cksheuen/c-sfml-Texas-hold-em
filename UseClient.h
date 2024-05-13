@@ -7,6 +7,9 @@ private:
     bool* search_room_complete;
     int room_index;
     TcpSocket* socket;
+
+    string ID;
+    vector<string> IDs;
 public:
     UseClient(vector<int>* room_list_set, Shader* bg_shader_set, bool* search_room_complete_set)
         : room_list(room_list_set), bg_shader(bg_shader_set), search_room_complete(search_room_complete_set) {};
@@ -48,6 +51,31 @@ public:
             else {
                 cout << "connect fail" << endl;
             }
+            Packet sending_ID;
+            sending_ID << "I'm going to tell you my name";
+            if (socket->send(sending_ID) == Socket::Done) {
+                cout << "send_id successfully " << ID << endl;
+            }
+            else {
+                cout << "send_id failed" << endl;
+            }
+            sending_ID.clear();
+            sending_ID << "send_id";
+            if (socket->send(sending_ID) == Socket::Done) {
+                cout << "send_id successfully " << ID << endl;
+            }
+            else {
+                cout << "send_id failed" << endl;
+            }
+            sending_ID.clear();
+            sending_ID << ID;
+            if (socket->send(sending_ID) == Socket::Done) {
+				cout << "send id successfully " << ID << endl;
+			}
+			else {
+				cout << "send id failed" << endl;
+			}
+
         	thread receive_message([&, MoveCardFn = move(MoveCardFn),
                 AddNewPublicCardFn = move(AddNewPublicCardFn),
                 SetMyTurn = move(SetMyTurn), this]() {
@@ -99,4 +127,8 @@ public:
     void SendPacketToServer(Packet packet) {
 		socket->send(packet);
 	}
+
+    void setID(string IDset) {
+        ID = IDset;
+    }
 };

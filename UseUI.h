@@ -91,6 +91,13 @@ public:
         window.draw(bg_shape, bg_states);
         window.display();
     };
+    void BasicCoverUI(std::function<void()> InsertFn) {
+        window.clear();
+        bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
+        window.draw(bg_shape, bg_states);
+        InsertFn();
+        window.display();
+    };
     void RunProgressBar() {
         clock.restart();
         init_complete = 0;
@@ -112,7 +119,7 @@ public:
     void InitChips() {
         int chips_value[8] = { 1, 2, 5, 10, 20, 25, 50, 100 };
         for (int i = 0; i < 8; i++) {
-            chips[i] = new UseChip(window, WINDOW_WIDTH / 10 * (i + 1), WINDOW_HEIGHT / 4, WINDOW_WIDTH / 12, chips_value[i], normal_font);
+            chips[i] = new UseChip(window, WINDOW_WIDTH / 10 * (i + 1), WINDOW_HEIGHT / 4, WINDOW_WIDTH / 24, chips_value[i], normal_font);
 
             BasicUI([&]() {
                 bg_shader.setUniform("percent", (float)((i + 53) / 60.));
@@ -296,9 +303,8 @@ public:
         }
     };
 
-    void ServerGameInterface(UseServer& server) {
+    void GameInterface(function<void()> server_init, function<void(Packet)> send_method) {
         Packet packet;
-
         UseButton call_button(window, WINDOW_WIDTH / 4, WINDOW_HEIGHT / 2, WINDOW_WIDTH / 8, "call", normal_font);
         UseButton fill_button(window, WINDOW_WIDTH / 4 * 2, WINDOW_HEIGHT / 2, WINDOW_WIDTH / 8, "fill", normal_font);
         UseButton back_button(window, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3, WINDOW_WIDTH / 8, "back", normal_font);
@@ -308,20 +314,7 @@ public:
         bg_shader.setUniform("init_complete", 1);
         clock.restart();
 
-        server.SendCardToAll([this](int x, int y) {
-            cout << "Send Card To Server Self" << endl;
-            AddMoveCard(x, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3 * 2, 0);
-            AddMoveCard(y, WINDOW_WIDTH / 3 * 2, WINDOW_HEIGHT / 3 * 2, 0);
-            });
-
-        server.RunTurns([this](int new_public_card) {
-            cout << "to run AddNewPublicCard" << endl;
-            AddNewPublicCard(new_public_card);
-            cout << "end AddNewPublicCard" << endl;
-            },
-            [this](bool my_turn) {
-                SetMyTurn(my_turn);
-            });
+        server_init();
 
         Text text;
         text.setFont(normal_font);
@@ -339,29 +332,33 @@ public:
             call_button.hover();
             fill_button.hover();
             give_up_button.hover();
+            back_button.hover();
+            over_button.hover();
             
             {
                 lock_guard<mutex> lock(my_turn_mtx);
                 if (my_turn) {
                     if (call_button.click()) {
+                        packet.clear();
                         packet << "call";
-                        server.ReceiveOwnMessage(packet);
+                        send_method(packet);
                         std::cout << "call" << endl;
 
                         my_turn = false;
                     }
                     if (fill_button.click()) {
+                        packet.clear();
                         packet << "fill";
-                        server.ReceiveOwnMessage(packet);
+                        send_method(packet);
                         std::cout << "start fill" << endl;
 
                         to_fill = true;
                     }
                     if (give_up_button.click()) {
+                        packet.clear();
                         packet << "give_up";
-                        server.ReceiveOwnMessage(packet);
+                        send_method(packet);
                         std::cout << "give_up" << endl;
-
                         my_turn = false;
                     }
 
@@ -370,8 +367,9 @@ public:
                             chips[i]->show();
                             chips[i]->hover();
                             if (chips[i]->click()) {
+                                packet.clear();
                                 packet << chips[i]->value;
-                                server.ReceiveOwnMessage(packet);
+                                send_method(packet);
                                 std::cout << "fill " << chips[i]->value << endl;
                             }
                         }
@@ -379,8 +377,9 @@ public:
                         back_button.hover();
                         if (back_button.click()) {
                             to_fill = false;
+                            packet.clear();
                             packet << "over_turn";
-                            server.ReceiveOwnMessage(packet);
+                            send_method(packet);
                             std::cout << "over_turn" << endl;
                             my_turn = false;
                         }
@@ -391,6 +390,8 @@ public:
             call_button.show();
             fill_button.show();
             give_up_button.show();
+            back_button.show();
+            over_button.show();
 
             if (show_cards.size() != 0) {
                 for (int i = 0; i < show_cards.size(); i++) {
@@ -413,116 +414,7 @@ public:
 
             window.display();
         }
-	};
-
-    void ClientGameInterface(UseClient client, int room_index) {
-        std::cout << "to join room " << room_index << endl;
-
-        UseButton call_button(window, WINDOW_WIDTH / 4, WINDOW_HEIGHT / 2, WINDOW_WIDTH / 8, "call", normal_font);
-        UseButton fill_button(window, WINDOW_WIDTH / 4 * 2, WINDOW_HEIGHT / 2, WINDOW_WIDTH / 8, "fill", normal_font);
-        UseButton back_button(window, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3, WINDOW_WIDTH / 8, "back", normal_font);
-        UseButton give_up_button(window, WINDOW_WIDTH / 4 * 3, WINDOW_HEIGHT / 3, WINDOW_WIDTH / 8, "give up", normal_font);
-        UseButton over_button(window, WINDOW_WIDTH / 3 * 2, WINDOW_HEIGHT / 2, WINDOW_WIDTH / 8, "over", normal_font);
-
-        bg_shader.setUniform("init_complete", 1);
-        clock.restart();
-
-        Text text;
-        text.setFont(normal_font);
-        text.setString("your turn");
-        text.setCharacterSize(24);
-        text.setFillColor(Color::Black);
-        text.setPosition(10, 10);
-
-        while (true)
-        {
-            window.clear(sf::Color::White);
-            bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
-            window.draw(bg_shape, bg_states);
-
-            call_button.hover();
-            fill_button.hover();
-            give_up_button.hover();
-            back_button.hover();
-            over_button.hover();
-
-            if (my_turn) {
-                if (call_button.click()) {
-                    Packet packet;
-                    packet << "call";
-                    client.SendPacketToServer(packet);
-                    std::cout << "call" << endl;
-
-                    my_turn = false;
-                }
-                if (fill_button.click()) {
-                    Packet packet;
-                    packet << "fill";
-                    client.SendPacketToServer(packet);
-                    std::cout << "start fill" << endl;
-
-                    to_fill = true;
-                }
-                if (give_up_button.click()) {
-                    Packet packet;
-                    packet << "give_up";
-                    client.SendPacketToServer(packet);
-                    std::cout << "give_up" << endl;
-
-                    my_turn = false;
-                }
-
-                if (to_fill) {
-                    for (int i = 0; i < 8; i++) {
-                        chips[i]->setPosition(i, WINDOW_HEIGHT / 2.);
-                        chips[i]->show();
-                        chips[i]->hover();
-                        if (chips[i]->click()) {
-                            Packet packet;
-                            packet << chips[i]->value;
-                            client.SendPacketToServer(packet);
-                            std::cout << "fill " << chips[i]->value << endl;
-                        }
-                    }
-                    back_button.show();
-                    back_button.hover();
-                    if (back_button.click()) {
-                        to_fill = false;
-                        Packet packet;
-                        packet << "over_turn";
-                        client.SendPacketToServer(packet);
-                        std::cout << "over_turn" << endl;
-                        my_turn = false;
-                    }
-                }
-                window.draw(text);
-            }
-
-            call_button.show();
-            fill_button.show();
-            give_up_button.show();
-            back_button.show();
-            over_button.show();
-
-
-            if (show_cards.size() != 0) {
-                for (int i = 0; i < show_cards.size(); i++) {
-                    if (clock.getElapsedTime().asSeconds() < move_card_start_time[i] + move_card_time[i])
-                    {
-                        float time = clock.getElapsedTime().asSeconds() - move_card_start_time[i];
-                        float dx = smoothstep(0, move_card_time[i], time) * move_card_dest[i].x;
-                        float dy = smoothstep(0, move_card_time[i], time) * move_card_dest[i].y;
-                        float angle = smoothstep(0, 1, clock.getElapsedTime().asSeconds()) * move_card_end_angle[i];
-                        cards[show_cards[i]]->setPos(dx, dy);
-                        cards[show_cards[i]]->setRotation(angle);
-                    }
-                    cards[show_cards[i]]->drawCard();
-                }
-            }
-
-            window.display();
-        }
-    };
+    }
 
     void AddMoveCard(int cardIndex, float x, float y, float angle) {
 		show_cards.push_back(cardIndex);
@@ -542,6 +434,40 @@ public:
         lock_guard<mutex> lock(my_turn_mtx);
 		my_turn = my_turn_set;
         cout << "set my_turn: " << my_turn << endl;
+	};
+
+    void InputContent(string* content) {
+        UseButton *ID_getter, *Confirm_btn;
+        ID_getter = new UseButton(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3, 100, "input your ID", normal_font);
+        Confirm_btn = new UseButton(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3 + 75, 100, "confirm", normal_font);
+		Event event;
+
+        while (true) {
+            while (window.pollEvent(event)) {
+                if (event.type == Event::TextEntered) {
+                    if (event.text.unicode < 128 && event.text.unicode != 8) {
+                        *content += static_cast<char>(event.text.unicode);
+                        ID_getter->setString(*content);
+                    }
+                    else if (event.text.unicode == 8) {
+                        if (!content->empty()) {
+                            content->pop_back();
+                            ID_getter->setString(*content);
+                        }
+                    }
+                }
+            }
+            BasicCoverUI([&] {
+                Confirm_btn->hover();
+                Confirm_btn->show();
+
+                ID_getter->show();
+                });
+            if (Confirm_btn->click()) {
+                return;
+            }
+            
+        }
 	};
 
 };

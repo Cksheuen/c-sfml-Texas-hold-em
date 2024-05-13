@@ -42,9 +42,15 @@ int main() {
 
     UseUI ui(WINDOW_WIDTH, WINDOW_HEIGHT, &listener);
 
+    string ID;
+
     ui.RunProgressBar();
     ui.InitCards();
     ui.InitChips();
+
+    ui.InputContent(&ID);
+
+    cout << "ID is " << ID << endl;
 
     ServerOrClient ModeChoose = ui.GameMenu();
 
@@ -55,13 +61,32 @@ int main() {
         unique_ptr<UseServer> server = make_unique<UseServer>(&clients, &GameStart, &listener, [](vector<TcpSocket*>* clients) {
             player_count = clients->size();
             });
+        server->setID(ID);
 
         server->WaitForConnection();
         ui.RoomOwnerInterface(*server, &player_count, &GameStart);
 
         cout << "Game Start" << endl;
         
-        ui.ServerGameInterface(*server);
+        ui.GameInterface([&] {
+            server->SendCardToAll([&ui](int x, int y) {
+                cout << "Send Card To Server Self" << endl;
+                ui.AddMoveCard(x, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3 * 2, 0);
+                ui.AddMoveCard(y, WINDOW_WIDTH / 3 * 2, WINDOW_HEIGHT / 3 * 2, 0);
+            });
+
+            server->RunTurns([&ui](int new_public_card) {
+                cout << "to run AddNewPublicCard" << endl;
+                ui.AddNewPublicCard(new_public_card);
+                cout << "end AddNewPublicCard" << endl;
+                },
+                [&ui](bool my_turn) {
+                    ui.SetMyTurn(my_turn);
+            });
+        },
+        [&] (Packet packet) {
+            server->ReceiveOwnMessage(packet);
+        });
     } else if (ModeChoose == ServerOrClient::Client) {
         ui.RunProgressBar();
 
@@ -70,6 +95,7 @@ int main() {
         bool search_room_complete = false;
 
         UseClient client(&room_list, &ui.bg_shader, &search_room_complete);
+        client.setID(ID);
         client.SearchServerList();
 
         int room_index = ui.ChooseRoomInterface(client, &search_room_complete, room_list);
@@ -85,7 +111,12 @@ int main() {
             [&ui](bool my_turn) {
                 ui.SetMyTurn(my_turn);
             });
-        ui.ClientGameInterface(client, room_index);
+            
+        ui.GameInterface([]{},
+            [&] (Packet packet) {
+                client.SendPacketToServer(packet);
+            }
+        );
         
         while (1);
     }

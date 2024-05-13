@@ -32,7 +32,7 @@ public:
 	UseChip(RenderWindow& windowSet, float xSet, float ySet, float radiusSet, int valueSet, Font fontSet)
 		:  radius(radiusSet), window(windowSet), ChipShape(radius),
 		x(xSet), y(ySet), value(valueSet), font(fontSet) {
-		ChipShape.setPosition(x - radius / 2., y);
+		ChipShape.setPosition(x - radius, y - radius);
 		shader = new UseShader<CircleShape>(windowSet, clock, ChipShape, "shaders/Chip/chip.vert", "shaders/Chip/chip.frag");
 		shader->setShapeSize(radius);
 		shader->shader.setUniform("color_set_in", ChipColor[value]);
@@ -68,35 +68,60 @@ public:
 			if (!hoverState) {
 				hoverState = true;
 				clock.restart();
+				shader->shader.setUniform("hover", 1);
+				setScale(1.5);
 			}
-			shader->shader.setUniform("hover", 1);
 			return true;
 		}
 		else {
-			shader->shader.setUniform("hover", 0);
-			hoverState = false;
+			if (hoverState) {
+				shader->shader.setUniform("hover", 0);
+				hoverState = false;
+				setScale(1);
+			}
 			return false;
 		}
 	}
 	bool click() {
-		Vector2i mousePos = Mouse::getPosition(window);
 		Event event;
 		window.pollEvent(event);
 
-		if (event.type == Event::MouseButtonPressed) {
-			if (event.mouseButton.button == Mouse::Left) {
-				if (ChipShape.getGlobalBounds().contains(mousePos.x, mousePos.y)) {
-					return true;
-				}
+		if (event.type == Event::MouseButtonPressed && event.mouseButton.button == Mouse::Left) {
+			if (hoverState) {
+				return true;
 			}
 		}
-
+		return false;
 	}
 
 	void setPosition(float xSet, float ySet) {
 		x = xSet;
 		y = ySet;
 		ChipShape.setPosition(x - radius / 2., y);
+	}
 
+	void setScale(float scale) {
+		float scale_radius = radius * scale;
+		ChipShape.setRadius(scale_radius);
+		ChipShape.setPosition(x - scale_radius, y - scale_radius);
+		shader->setShapeSize(scale_radius);
+
+		text.setCharacterSize(scale_radius / 50 * 24);
+		text.setFillColor(Color::White);
+
+		sf::FloatRect textBounds = text.getLocalBounds();
+
+		float x = (scale_radius - textBounds.width) / 2 - textBounds.left;
+		float y = (scale_radius - textBounds.height) / 2 - textBounds.top;
+
+		text.setPosition(x, y);
+
+		int width = to_string(value).length() * 16;
+		renderTexture.create(scale_radius, scale_radius);
+		renderTexture.clear(Color::Transparent);
+		renderTexture.draw(text);
+		renderTexture.display();
+
+		shader->setTextTexture(renderTexture);
 	}
 };

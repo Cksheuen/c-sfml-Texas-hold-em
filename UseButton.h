@@ -25,7 +25,6 @@ public:
 		shader->setShapeSize(width, height);
 
 		text.setFont(font);
-		//text.setPosition(x, y + height / 2. - 18.);
 		text.setString(content);
 		text.setCharacterSize(24);
 		text.setFillColor(Color::White);
@@ -52,8 +51,10 @@ public:
 			return true;
 		}
 		else {
-			shader->shader.setUniform("hover", 0);
-			hoverState = false;
+			if (hoverState) {
+				shader->shader.setUniform("hover", 0);
+				hoverState = false;
+			}
 			return false;
 		}
 	}
@@ -61,16 +62,26 @@ public:
 		Event event;
 		window.pollEvent(event);
 
-		if (event.type == Event::MouseButtonPressed) {
-			Vector2i mousePos = Mouse::getPosition(window);
-			if (event.mouseButton.button == Mouse::Left) {
-
-				if (ButtonShape.getGlobalBounds().contains(mousePos.x, mousePos.y)) {
-					return true;
-				}
-			}
+		if (event.type == Event::MouseButtonPressed && event.mouseButton.button == Mouse::Left) {
+			if (hoverState) return true;
 		}
 		return false;
+	}
+	void setString(string contentSet) {
+		content = contentSet;
+		width = content.length() * 24.;
+		ButtonShape.setSize(Vector2f(width, height));
+		ButtonShape.setPosition(x - width / 2., y);
 
+		shader->setShapeSize(width, height);
+
+		text.setString(content);
+
+		renderTexture.create(width, height);
+		renderTexture.clear(Color::Transparent);
+		renderTexture.draw(text);
+		renderTexture.display();
+
+		shader->setTextTexture(renderTexture);
 	}
 };

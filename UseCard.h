@@ -253,7 +253,6 @@ public:
 	}
 	void setRotation(float angleSet) {
 		angle = angleSet;
-		//cout << "angle: " << angle << endl;
 	}
 	void setPos(float xSet, float ySet) {
 		x = xSet;
@@ -278,8 +277,6 @@ public:
 			hoverState = false;
 			return false;
 		}
-		
-
 	}
 
 	void scale(float x, float y) {

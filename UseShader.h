@@ -112,7 +112,7 @@ public:
         shader.setUniform("shape_size", sf::Vector2f(widthSet, heightSet));
         width = widthSet;
         height = heightSet;
-        //setGlobalPosition(shape);
+        setGlobalPosition(shape);
     }
     void setShapeSize(float radiusSet) {
         shader.setUniform("radius", radiusSet);

@@ -49,6 +49,9 @@ private:
 
     mutex mtx;
 
+    string ID;
+    vector<string> IDs;
+
     int CalculateHandValue(const vector<int>& hand) {
         vector<int> sorted_hand = hand;
         sort(sorted_hand.begin(), sorted_hand.end());
@@ -151,8 +154,10 @@ public:
                     Packet packet;
                     packet << "welcome to the game room";
                     client->send(packet);
+                    packet.clear();
                     cout << "send welcome message to " << client->getRemoteAddress() << endl;
                     std::cout << "new connection from " << client->getRemoteAddress() << endl;
+                    ReceiveMessageFromAsync(clients->size() - 1);
                     callback(clients);
                 }
                 else {
@@ -162,6 +167,23 @@ public:
             *GameStart = true;
             });
         wait_for_clients.detach();
+    }
+
+    string ReceiveID(int index) {
+        if (index > clients->size() || index < 0) {
+            return "";
+        }
+        TcpSocket* client = clients->at(index);
+
+        while (true) {
+            Packet packet;
+            if (client->receive(packet) == Socket::Done) {
+                string message;
+                packet >> message;
+                cout << "ID from " << client->getRemoteAddress() << ": " << message << endl;
+                return message;
+            }
+        }
     }
 
     void ReceiveMessageFromAsync(int index) {
@@ -179,7 +201,7 @@ public:
             string responseMessage;
             responsePacket >> responseMessage;
             cout << "Received response from " << client->getRemoteAddress() << ": " << responseMessage << endl;
-
+            
             while (true) {
                 Packet packet;
                 if (client->receive(packet) == Socket::Done) {
@@ -204,12 +226,20 @@ public:
                         player_chips_value[index] = +chipValue;
                         normal_chips_value += chipValue;
                     }
+                    else if (message == "send_id") {
+                        cout << "send_id";
+                        string new_id = ReceiveID(index);
+                        cout << "this players' id is " << endl;
+                        cout << new_id << endl;
+                        IDs.push_back(new_id);
+                        return;
+                    }
                 }
             }
-            
+
         }
-        
-        
+
+
     }
 
     void ReceiveOwnMessage(Packet packet) {
@@ -262,6 +292,12 @@ public:
         }
         
         turns_index.push_back(clients->size());
+        IDs.push_back(ID);
+        cout << "IDS" << endl;
+        for (int i = 0; i < IDs.size(); i++) {
+			cout << IDs[i] << " ";
+		}
+        cout << endl;
         for (int i = 0; i < clients->size(); i++) {
             int randomIndex = rand() % (clients->size() + 1);
             int temp = turns_index[i];
@@ -324,7 +360,7 @@ public:
             cout << "we have " << clients->size() + 1 << " players" << endl;
             cout << " they are ";
             for (int i = 0; i < clients->size() + 1; i++) {
-				cout << turns_index[i] << " ";
+                cout << IDs[turns_index[i]] << "(" << turns_index[i] << ") ";
 			}
             cout << endl;
             while (round < 3) {
@@ -344,7 +380,7 @@ public:
                         if (turn == clients->size()) {
                             SetMyTurn(true);
                             over_turn = false;
-                            cout << "wait for over from player " << turn << endl;
+                            cout << "wait for over from player " << IDs[turn] << "(" << turn << ")" << endl;
 
                             unique_lock<mutex> lock(mtx);
                             while (!over_turn) {
@@ -352,7 +388,7 @@ public:
                                 this_thread::sleep_for(chrono::milliseconds(100));
                                 lock.lock();
                             }
-                            cout << "player " << turn << " is over" << endl;
+                            cout << "player " << IDs[turn] << "(" << turn << ") is over" << endl;
                         }
                         else {
                             
@@ -386,17 +422,24 @@ public:
                 }
             }
             winner_score -= player_chips_value[winner];
-            cout << "winner is player " << winner << endl;
+            cout << "winner is player " << IDs[winner] << endl;
             Packet packet;
             packet << "winner " << winner;
             SendToAllClients(packet);
             for (int i = 0; i < turns_index.size(); i++) {
-                if (turns_index[i] != winner) {
+                if (turns_index[i] != winner ) {
+                    if (turns_index[i] == turns_index.size() - 1) {
+                        continue;
+                    }
                     packet << "lose " << player_chips_value[turns_index[i]];
                     clients->at(turns_index[i])->send(packet);
                 }
             }
 			});
         run_turns_thread.detach();
+    }
+
+    void setID(string IDset) {
+        ID = IDset;
     }
 };
