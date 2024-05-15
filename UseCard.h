@@ -1,50 +1,12 @@
-﻿#include <iostream>
+﻿#ifndef USE_CARD
+#define USE_CARD
+
+#include <iostream>
 #include <SFML/Graphics.hpp>
 #include "UseShader.h"
 
 using namespace std;
 using namespace sf;
-
-// 扑克牌类型
-enum CardType
-{
-	CardType_None = 0,
-	CardType_Heart,		// 红桃
-	CardType_Spade,		// 黑桃
-	CardType_Club,		// 梅花
-	CardType_Diamond,	// 方块
-	CardType_Joker,		// 大小王
-};
-
-map<enum CardType, string> cardTypeMap = {
-	{CardType_Heart, "Heart"},
-	{CardType_Spade, "Spade"},
-	{CardType_Club, "Club"},
-	{CardType_Diamond, "Diamond"},
-	{CardType_Joker, "Joker"}
-};
-
-string number_to_string(int number) {
-	if (number == 1) {
-		return "A";
-	}
-	else
-	if (number > 1 && number <= 10) {
-		return to_string(number);
-	}
-	else {
-		switch (number) {
-		case 11:
-			return "J";
-		case 12:
-			return "Q";
-		case 13:
-			return "K";
-		default:
-			return "None";
-		}
-	}
-}
 
 class UseCard {
 private:
@@ -266,7 +228,7 @@ public:
 			hoverText.setFont(font);
 			hoverText.setCharacterSize(24);
 
-			string cardTypeStr = cardTypeMap[cardType] + " " + number_to_string(number);
+			string cardTypeStr = cardTypeNumMap[cardType] + " " + number_to_string(number);
 			hoverText.setString(cardTypeStr);
 			hoverText.setFillColor(Color::Blue);
 			hoverText.setPosition(x, y - 50);
@@ -284,3 +246,5 @@ public:
 	}
 
 };
+
+#endif

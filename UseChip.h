@@ -1,3 +1,6 @@
+#ifndef USE_CHIP
+#define USE_CHIP
+
 #include <iostream>
 #include <SFML/Graphics.hpp>
 
@@ -125,3 +128,5 @@ public:
 		shader->setTextTexture(renderTexture);
 	}
 };
+
+#endif

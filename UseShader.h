@@ -1,3 +1,6 @@
+#ifndef USE_SHADER
+#define USE_SHADER
+
 #include <iostream>
 #include <SFML/Graphics.hpp>
 
@@ -116,12 +119,14 @@ public:
     }
     void setShapeSize(float radiusSet) {
         shader.setUniform("radius", radiusSet);
-        //setGlobalPosition(shape);
     }
     void setTextTexture(sf::RenderTexture& texture) {
 		shader.setUniform("text_texture", texture.getTexture());
         cout << "set text texture" << endl;
 	}
+    void updatePos() {
+        setGlobalPosition(shape);
+    }
     void clear() {
         window.clear(sf::Color::White);
     }
@@ -160,3 +165,5 @@ public:
         cout << "save image" << endl;
     }
 };
+
+#endif // USE_SHADER
