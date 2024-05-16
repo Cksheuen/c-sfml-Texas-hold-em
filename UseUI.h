@@ -115,7 +115,8 @@ public:
 
         BasicUI([&]() {
           bg_shader.setUniform(
-              "percent", (float)(((type - CardType_Heart) * 13 + i) / 60.));
+              "percent",
+              smoothstep(0., 1., (((type - CardType_Heart) * 13 + i) / 60.)));
         });
       }
     }
@@ -123,11 +124,12 @@ public:
   void InitChips() {
     for (int i = 0; i < 8; i++) {
       chips[i] =
-          new UseChip(window, WINDOW_WIDTH / 10 * (i + 1), WINDOW_HEIGHT / 4,
+          new UseChip(window, WINDOW_WIDTH / 17 * (i + 1) * 2, WINDOW_HEIGHT / 4,
                       WINDOW_WIDTH / 24, chips_value[i], normal_font);
 
-      BasicUI(
-          [&]() { bg_shader.setUniform("percent", (float)((i + 53) / 60.)); });
+      BasicUI([&]() {
+        bg_shader.setUniform("percent", smoothstep(0., 1., ((i + 53) / 60.)));
+      });
     }
   };
 
@@ -409,6 +411,7 @@ public:
       for (int i = 0; i < PlayersButs.size(); i++) {
         PlayersButs[i]->show();
         if (PlayersButs[i]->content == turn_ID) {
+          cout << "set " << turn_ID << " true" << endl;
           PlayersButs[i]->setHoverState(true);
         } else if (PlayersButs[i]->hoverState) {
           PlayersButs[i]->setHoverState(false);
@@ -505,7 +508,6 @@ public:
       });
       if (Confirm_btn->click()) {
         if (content->empty()) {
-          cout << "ID can't be empty" << endl;
           alert->addAlert("ID can't be empty");
         } else {
           return;

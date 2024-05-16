@@ -122,7 +122,6 @@ public:
     }
     void setTextTexture(sf::RenderTexture& texture) {
 		shader.setUniform("text_texture", texture.getTexture());
-        cout << "set text texture" << endl;
 	}
     void updatePos() {
         setGlobalPosition(shape);
@@ -163,6 +162,10 @@ public:
         sf::Image image = renderTexture.getTexture().copyToImage();
         image.saveToFile("result.png");
         cout << "save image" << endl;
+    }
+
+    void setOpacity(float opacity) {
+        shader.setUniform("opacity", opacity);
     }
 };
 

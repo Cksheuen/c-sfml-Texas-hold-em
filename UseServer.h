@@ -9,7 +9,6 @@
 #include <thread>
 #include <vector>
 
-
 using namespace std;
 using namespace sf;
 
@@ -35,6 +34,7 @@ private:
   TcpListener *listener;
   function<void(vector<TcpSocket *> *)> callback;
   function<void(string)> Alert;
+  function<void(string)> AddPlayersBut;
 
   bool card[4][13] = {0};
   int OwnCard[2] = {-1};
@@ -318,6 +318,7 @@ public:
     packet << len;
     for (int i = 0; i < len; i++) {
       packet << IDs[turns_index[i]];
+      AddPlayersBut(IDs[turns_index[i]]);
     }
     SendToAllClients(packet);
   }
@@ -377,9 +378,11 @@ public:
   }
 
   void RunTurns(function<void(int)> AddNewPublicCardFn,
-                function<void(bool)> SetMyTurn) {
+                function<void(bool)> SetMyTurn,
+                function<void(string)> setTurnIndex) {
     thread run_turns_thread([&, AddNewPublicCardFn = move(AddNewPublicCardFn),
-                             SetMyTurn = move(SetMyTurn)] {
+                             SetMyTurn = move(SetMyTurn),
+                             setTurnIndex = move(setTurnIndex)] {
       cout << "we have " << clients->size() + 1 << " players" << endl;
       cout << " they are ";
       for (int i = 0; i < clients->size() + 1; i++) {
@@ -399,7 +402,13 @@ public:
         for (int i = 0; i < turns_index.size(); i++) {
           if (!player_give_up[turns_index[i]]) {
             turn = turns_index[i];
+
+            Packet packet;
+            SendToAllClients(packet);
+            setTurnIndex(IDs[turn]);
+
             if (turn == clients->size()) {
+
               SetMyTurn(true);
               over_turn = false;
               cout << "wait for over from player " << IDs[turn] << "(" << turn
@@ -415,13 +424,10 @@ public:
                    << endl;
             } else {
               Packet packet;
-              packet << "turns_index" << turn;
-              SendToAllClients(packet);
-              /* Packet packet;
               packet << "your_turn";
               clients->at(turn)->send(packet);
               ReceiveMessageFromAsync(turn);
-              cout << "received over" << endl; */
+              cout << "received over" << endl;
             }
           }
         }
@@ -465,6 +471,8 @@ public:
   }
 
   void setID(string IDset) { ID = IDset; }
+
+  void SetPlayBtnsFn(function<void(string)> fnSet) { AddPlayersBut = fnSet; }
 };
 
 #endif

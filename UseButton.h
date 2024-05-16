@@ -1,6 +1,8 @@
 #ifndef USE_BUTTON
 #define USE_BUTTON
 
+#define ANIMATION_TIME 0.2
+
 #include <SFML/Graphics.hpp>
 #include <iostream>
 #include "UseShader.h"
@@ -11,7 +13,7 @@ using namespace sf;
 
 class UseButton {
 private:
-  float width, height, x, y, dx, dy;
+  float width, height, x, y, dx, dy, origin_x, origin_y;
   RenderWindow &window;
   Clock clock, animation_clock;
   UseShader<RectangleShape> *shader;
@@ -20,6 +22,7 @@ private:
   RenderTexture renderTexture;
   Text text;
   float start_time;
+  bool first_show = true;
 
 public:
   string content;
@@ -27,10 +30,10 @@ public:
   UseButton(RenderWindow &windowSet, float xSet, float ySet, float heightSet,
             string contentSet, Font fontSet)
       : width(contentSet.length() * 24.), height(heightSet), window(windowSet),
-        ButtonShape(Vector2f(width, height)), x(xSet), y(ySet),
+        ButtonShape(Vector2f(width, height)), origin_x(xSet), origin_y(ySet),
         content(contentSet), font(fontSet) {
-    x = x - width / 2.;
-    y = y + height / 10.;
+    x = origin_x - width / 2.;
+    y = origin_y - height / 10.;
     ButtonShape.setPosition(x, y);
     shader = new UseShader<RectangleShape>(windowSet, clock, ButtonShape,
                                            "shaders/Button/button.vert",
@@ -38,7 +41,7 @@ public:
     shader->setShapeSize(width, height);
 
     dx = 0;
-    dy = -height / 10.;
+    dy = height / 10.;
 
     text.setFont(font);
     text.setString(content);
@@ -63,10 +66,11 @@ public:
   }
   void show() {
     float time =
-        smoothstep(0., 1., animation_clock.getElapsedTime().asSeconds() - start_time);
-    if (time < 1. && time > 0. ) cout << "y " <<  y << endl;
+        smoothstep(0., ANIMATION_TIME, animation_clock.getElapsedTime().asSeconds() - start_time);
+    if (time < 1. && time > 0. && first_show) shader->setOpacity(time);
+    else if (first_show) first_show = false;
 
-    ButtonShape.setPosition(x + dx * (1, -time), y + dy * (1. - time));
+    ButtonShape.setPosition(x + dx * (1. -time), y + dy * (1. - time));
     shader->updatePos();
 
     shader->useShader();
@@ -111,6 +115,8 @@ public:
     content = contentSet;
     width = content.length() * 24.;
     ButtonShape.setSize(Vector2f(width, height));
+    x = origin_x - width / 2.;
+    y = origin_y;
     ButtonShape.setPosition(x, y);
 
     shader->setShapeSize(width, height);
