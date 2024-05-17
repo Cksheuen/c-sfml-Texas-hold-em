@@ -1,6 +1,8 @@
 #ifndef USE_UI
 #define USE_UI
 
+#define BUTTON_HEIGHT WINDOW_HEIGHT / 5
+
 #include "UseAlert.h"
 #include "UseCal.h"
 
@@ -34,11 +36,9 @@ private:
   TcpSocket *socket = new TcpSocket;
   int join_room_index = -1;
 
-  vector<string> IDs;
-
   vector<UseButton *> PlayersButs;
 
-  string turn_ID;
+  int turn_ID;
 
 public:
   vector<int> show_cards;
@@ -123,9 +123,9 @@ public:
   };
   void InitChips() {
     for (int i = 0; i < 8; i++) {
-      chips[i] =
-          new UseChip(window, WINDOW_WIDTH / 17 * (i + 1) * 2, WINDOW_HEIGHT / 4,
-                      WINDOW_WIDTH / 24, chips_value[i], normal_font);
+      chips[i] = new UseChip(window, WINDOW_WIDTH / 17 * (i + 1) * 2,
+                             WINDOW_HEIGHT / 4, WINDOW_WIDTH / 24,
+                             chips_value[i], normal_font);
 
       BasicUI([&]() {
         bg_shader.setUniform("percent", smoothstep(0., 1., ((i + 53) / 60.)));
@@ -144,9 +144,9 @@ public:
     float button_x = WINDOW_WIDTH / 2;
     float button_y = WINDOW_HEIGHT / 3;
 
-    button_list[0] = new UseButton(window, button_x, button_y, 100,
+    button_list[0] = new UseButton(window, button_x, button_y, BUTTON_HEIGHT,
                                    "create game room", normal_font);
-    button_list[1] = new UseButton(window, button_x, button_y + 70, 100,
+    button_list[1] = new UseButton(window, button_x, button_y + 70, BUTTON_HEIGHT,
                                    "join game room", normal_font);
 
     bg_shader.setUniform("init_complete", 1);
@@ -232,7 +232,7 @@ public:
     float button_x = WINDOW_WIDTH / 2;
     float button_y = WINDOW_HEIGHT / 3;
     cout << "room owner interface init start" << endl;
-    UseButton *start_button = new UseButton(window, button_x, button_y, 100,
+    UseButton *start_button = new UseButton(window, button_x, button_y, BUTTON_HEIGHT,
                                             "start game", normal_font);
     clock.restart();
 
@@ -286,7 +286,7 @@ public:
 
     for (int i = 0; i < room_list.size(); i++) {
       room_button_list.push_back(
-          new UseButton(window, button_x, button_y + i * 70, 100,
+          new UseButton(window, button_x, button_y + i * 70, BUTTON_HEIGHT,
                         "room " + to_string(room_list[i]), normal_font));
 
       BasicUI([&]() {
@@ -322,16 +322,17 @@ public:
   void GameInterface(function<void()> server_init,
                      function<void(Packet)> send_method) {
     Packet packet;
-    UseButton call_button(window, WINDOW_WIDTH / 4, WINDOW_HEIGHT / 2,
-                          WINDOW_WIDTH / 8, "call", normal_font);
-    UseButton fill_button(window, WINDOW_WIDTH / 4 * 2, WINDOW_HEIGHT / 2,
-                          WINDOW_WIDTH / 8, "fill", normal_font);
-    UseButton back_button(window, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3,
-                          WINDOW_WIDTH / 8, "back", normal_font);
-    UseButton give_up_button(window, WINDOW_WIDTH / 4 * 3, WINDOW_HEIGHT / 3,
-                             WINDOW_WIDTH / 8, "give up", normal_font);
-    UseButton over_button(window, WINDOW_WIDTH / 3 * 2, WINDOW_HEIGHT / 2,
-                          WINDOW_WIDTH / 8, "over", normal_font);
+    int btn_height = WINDOW_HEIGHT / 3 * 2;
+    UseButton call_button(window, WINDOW_WIDTH / 11 * 2, btn_height,
+                          BUTTON_HEIGHT, "call", normal_font);
+    UseButton fill_button(window, WINDOW_WIDTH / 11 * 4, btn_height,
+                          BUTTON_HEIGHT, "fill", normal_font);
+    UseButton back_button(window, WINDOW_WIDTH / 11 * 6, btn_height,
+                          BUTTON_HEIGHT, "back", normal_font);
+    UseButton give_up_button(window, WINDOW_WIDTH / 11 * 8, btn_height,
+                             BUTTON_HEIGHT, "give up", normal_font);
+    UseButton over_button(window, WINDOW_WIDTH / 11 * 10, btn_height,
+                          BUTTON_HEIGHT, "over", normal_font);
 
     bg_shader.setUniform("init_complete", 1);
     clock.restart();
@@ -410,19 +411,7 @@ public:
 
       for (int i = 0; i < PlayersButs.size(); i++) {
         PlayersButs[i]->show();
-        if (PlayersButs[i]->content == turn_ID) {
-          cout << "set " << turn_ID << " true" << endl;
-          PlayersButs[i]->setHoverState(true);
-        } else if (PlayersButs[i]->hoverState) {
-          PlayersButs[i]->setHoverState(false);
-        }
       }
-
-      call_button.show();
-      fill_button.show();
-      give_up_button.show();
-      back_button.show();
-      over_button.show();
 
       if (show_cards.size() != 0) {
         for (int i = 0; i < show_cards.size(); i++) {
@@ -442,6 +431,12 @@ public:
           cards[show_cards[i]]->drawCard();
         }
       }
+
+      call_button.show();
+      fill_button.show();
+      give_up_button.show();
+      back_button.show();
+      over_button.show();
 
       if (my_turn) {
         window.draw(text);
@@ -479,10 +474,10 @@ public:
 
   void InputContent(string *content) {
     UseButton *ID_getter, *Confirm_btn;
-    ID_getter = new UseButton(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3, 100,
+    ID_getter = new UseButton(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3, BUTTON_HEIGHT,
                               "input your ID", normal_font);
     Confirm_btn =
-        new UseButton(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3 + 75, 100,
+        new UseButton(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3 + 75, BUTTON_HEIGHT,
                       "confirm", normal_font);
     Event event;
 
@@ -520,15 +515,24 @@ public:
   void AlertInterface(string alert) { this->alert->addAlert(alert); }
 
   void AddPlayersBut(string ID) {
-    PlayersButs.push_back(new UseButton(
-        window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3 * 2, 100, ID, normal_font));
+    cout << "add player " << ID << endl;
+    PlayersButs.push_back(
+        new UseButton(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 10, BUTTON_HEIGHT, ID, normal_font));
     for (int i = 0; i < PlayersButs.size(); i++) {
       PlayersButs[i]->moveTo(WINDOW_WIDTH / (PlayersButs.size() + 1) * (i + 1),
                              WINDOW_HEIGHT / 5);
+      cout << i << " move to "
+           << WINDOW_WIDTH / (PlayersButs.size() + 1) * (i + 1) << " "
+           << WINDOW_HEIGHT / 5 << endl;
     }
   };
 
-  void setTurnsIndex(string turnsIndexSet) { turn_ID = turnsIndexSet; }
+  void setTurnsIndex(int turnsIndexSet) {
+    cout << turn_ID << "'s turn" << endl;
+    PlayersButs[turn_ID]->setHoverState(false);
+    turn_ID = turnsIndexSet;
+    PlayersButs[turn_ID]->setHoverState(true);
+  }
 };
 
 #endif

@@ -34,9 +34,8 @@ public:
               room_list->push_back(port);
               bg_shader->setUniform("percent",
                                     (float)((port - 3000.0) / 2000.0));
-
               Packet packet;
-              packet << Socket::Disconnected;
+              packet << "just_searching";
               socket->send(packet);
               socket->disconnect();
             } else {
@@ -70,8 +69,8 @@ public:
                       function<void(int)> AddNewPublicCardFn,
                       function<void(bool)> SetMyTurn,
                       function<void(string)> AddPlayersBut,
-                      function<void(string)> SetTurnsIndex) {
-    cout << "start receive message" << endl;
+                      function<void(int)> SetTurnsIndex) {
+    cout << "start receive message from " << room_index << endl;
     socket = new TcpSocket;
     if (socket->connect("localhost", room_index)) {
       cout << "connect success" << endl;
@@ -109,10 +108,10 @@ public:
           if (message == "your_turn") {
             cout << "it's my turn now" << endl;
             SetMyTurn(true);
-          } else if (message == "turns_index") {
-            int turns_index;
-            packet >> turns_index;
-            cout << "turns_index: " << turns_index << endl;
+          } else if (message == "now_turn") {
+            int now_turn;
+            packet >> now_turn;
+            SetTurnsIndex(now_turn);
           }
           if (message == "winner") {
             int winner;
@@ -143,7 +142,8 @@ public:
             for (int i = 0; i < turns_index; i++) {
               string ID;
               packet >> ID;
-              SetTurnsIndex(ID);
+              AddPlayersBut(ID);
+              cout << "new ID " << ID << endl; 
               //   IDs.push_back(ID);
             }
           }

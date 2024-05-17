@@ -160,15 +160,18 @@ public:
           packet.clear();
           cout << "send welcome message to " << client->getRemoteAddress()
                << endl;
-          std::cout << "new connection from " << client->getRemoteAddress()
-                    << endl;
+          cout << "new connection from " << client->getRemoteAddress() << endl;
+          clients->push_back(client);
           ReceiveMessageFromAsync(clients->size() - 1);
-          if (clients->size() <= IDs.size()) {
-            clients->push_back(client);
+          if (clients->size() < IDs.size() + 1) {
+            // clients->push_back(client);
             Alert(IDs[clients->size() - 1] + " has joined the game room");
             Packet packet;
             packet << "join_game_room" << IDs[clients->size() - 1];
             SendToAllClients(packet);
+          } else {
+            cout << "remove client" << endl;
+            clients->pop_back();
           }
           callback(clients);
         } else {
@@ -214,7 +217,8 @@ public:
       responsePacket >> responseMessage;
       cout << "Received response from " << client->getRemoteAddress() << ": "
            << responseMessage << endl;
-
+      if (responseMessage == "just_searching")
+        return;
       while (true) {
         Packet packet;
         if (client->receive(packet) == Socket::Done) {
@@ -312,6 +316,7 @@ public:
   }
 
   void SendTurnsIndex() {
+    cout << "send turns index" << endl;
     Packet packet;
     packet << "turns_index";
     int len = turns_index.size();
@@ -379,7 +384,7 @@ public:
 
   void RunTurns(function<void(int)> AddNewPublicCardFn,
                 function<void(bool)> SetMyTurn,
-                function<void(string)> setTurnIndex) {
+                function<void(int)> setTurnIndex) {
     thread run_turns_thread([&, AddNewPublicCardFn = move(AddNewPublicCardFn),
                              SetMyTurn = move(SetMyTurn),
                              setTurnIndex = move(setTurnIndex)] {
@@ -404,8 +409,9 @@ public:
             turn = turns_index[i];
 
             Packet packet;
+            packet << "now_turn" << i;
             SendToAllClients(packet);
-            setTurnIndex(IDs[turn]);
+            setTurnIndex(i);
 
             if (turn == clients->size()) {
 

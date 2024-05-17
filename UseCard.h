@@ -4,6 +4,7 @@
 #include <iostream>
 #include <SFML/Graphics.hpp>
 #include "UseShader.h"
+#include "UseCal.h"
 
 using namespace std;
 using namespace sf;

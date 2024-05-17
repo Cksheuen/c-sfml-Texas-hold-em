@@ -74,7 +74,7 @@ int main() {
                 cout << "end AddNewPublicCard" << endl;
               },
               [&ui](bool my_turn) { ui.SetMyTurn(my_turn); },
-              [&ui](string turns_id) { ui.setTurnsIndex(turns_id); });
+              [&ui](int turns_id) { ui.setTurnsIndex(turns_id); });
         },
         [&](Packet packet) { server->ReceiveOwnMessage(packet); });
   } else if (ModeChoose == ServerOrClient::Client) {
@@ -103,7 +103,7 @@ int main() {
         },
         [&ui](bool my_turn) { ui.SetMyTurn(my_turn); },
         [&ui](string ID) { ui.AddPlayersBut(ID); },
-        [&ui](string turns_id) { ui.setTurnsIndex(turns_id); });
+        [&ui](int turns_id) { ui.setTurnsIndex(turns_id); });
 
     ui.GameInterface([] {},
                      [&](Packet packet) { client.SendPacketToServer(packet); });

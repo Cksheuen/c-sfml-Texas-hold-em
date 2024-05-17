@@ -3,10 +3,10 @@
 
 #define ANIMATION_TIME 0.2
 
+#include "UseCal.h"
+#include "UseShader.h"
 #include <SFML/Graphics.hpp>
 #include <iostream>
-#include "UseShader.h"
-#include "UseCal.h"
 
 using namespace std;
 using namespace sf;
@@ -23,15 +23,21 @@ private:
   Text text;
   float start_time;
   bool first_show = true;
+  int points;
 
 public:
   string content;
   bool hoverState = false;
   UseButton(RenderWindow &windowSet, float xSet, float ySet, float heightSet,
             string contentSet, Font fontSet)
-      : width(contentSet.length() * 24.), height(heightSet), window(windowSet),
-        ButtonShape(Vector2f(width, height)), origin_x(xSet), origin_y(ySet),
+      : height(heightSet), points(height * .25),
+        width(contentSet.length() * points), window(windowSet),
+         origin_x(xSet), origin_y(ySet),
         content(contentSet), font(fontSet) {
+    cout << "Button Created: " << content << endl;
+    width = contentSet.length() * points;
+    ButtonShape.setSize(Vector2f(width, height));
+
     x = origin_x - width / 2.;
     y = origin_y - height / 10.;
     ButtonShape.setPosition(x, y);
@@ -45,7 +51,7 @@ public:
 
     text.setFont(font);
     text.setString(content);
-    text.setCharacterSize(24);
+    text.setCharacterSize(points);
     text.setFillColor(Color::White);
 
     renderTexture.create(width, height);
@@ -58,19 +64,28 @@ public:
     start_time = animation_clock.getElapsedTime().asSeconds();
   }
   void moveTo(float xSet, float ySet) {
-    x = ButtonShape.getPosition().x;
-    y = ButtonShape.getPosition().y;
-    dx = xSet - x;
-    dy = ySet - y;
+    origin_x = xSet;
+    origin_y = ySet;
+
+    x = origin_x - width / 2.;
+    y = origin_y - height / 10.;
+    ButtonShape.setPosition(x, y);
+
+    dx = 0;
+    dy = height / 10.;
+
     start_time = animation_clock.getElapsedTime().asSeconds();
   }
   void show() {
     float time =
-        smoothstep(0., ANIMATION_TIME, animation_clock.getElapsedTime().asSeconds() - start_time);
-    if (time < 1. && time > 0. && first_show) shader->setOpacity(time);
-    else if (first_show) first_show = false;
+        smoothstep(0., ANIMATION_TIME,
+                   animation_clock.getElapsedTime().asSeconds() - start_time);
+    if (time < 1. && time > 0. && first_show)
+      shader->setOpacity(time);
+    else if (first_show)
+      first_show = false;
 
-    ButtonShape.setPosition(x + dx * (1. -time), y + dy * (1. - time));
+    ButtonShape.setPosition(x + dx * (1. - time), y + dy * (1. - time));
     shader->updatePos();
 
     shader->useShader();

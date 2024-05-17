@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <string>
+#include <map>
 
 using namespace std;
 
