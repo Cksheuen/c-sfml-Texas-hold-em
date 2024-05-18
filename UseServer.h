@@ -36,6 +36,10 @@ private:
   function<void(string)> Alert;
   function<void(string)> AddPlayersBut;
 
+  bool small_blind = false, big_blind = false, first_fill = false;
+
+  int should_min_fill = 0, now_round_base_fill = 0;
+
   bool card[4][13] = {0};
   int OwnCard[2] = {-1};
 
@@ -201,6 +205,39 @@ public:
     }
   }
 
+  void DealWithMessage(Packet packet) {
+    cout << "deal with message" << endl;
+    string message;
+    packet >> message;
+    cout << "receive message from " << turn << ": " << message << endl;
+    if (message == "over_turn" || message == "call" || message == "give_up") {
+      lock_guard<mutex> lock(mtx);
+      over_turn = true;
+      if (message == "call") {
+        player_chips_value[turn] = now_round_base_fill + should_min_fill;
+      } else if (message == "give_up") {
+        player_give_up[turn] = true;
+      } else if (message == "over_turn") {
+        should_min_fill = player_chips_value[turn] - now_round_base_fill;
+      }
+      cout << "turn the over_turn to true" << endl;
+    } else if (message == "fill") {
+      int chipValue;
+      packet >> chipValue;
+      cout << "receive chip value: " << chipValue << endl;
+
+      normal_chips_value += chipValue;
+
+      player_chips_value[turn] += chipValue;
+    } else if (message == "send_id") {
+      cout << "send_id";
+      string new_id = ReceiveID(turn);
+      cout << "this players' id is " << endl;
+      cout << new_id << endl;
+      IDs.push_back(new_id);
+    }
+  }
+
   void ReceiveMessageFromAsync(int index) {
     if (index > clients->size() || index < 0) {
       return;
@@ -222,35 +259,12 @@ public:
       while (true) {
         Packet packet;
         if (client->receive(packet) == Socket::Done) {
-          string message;
-          packet >> message;
-          cout << "receive message from " << client->getRemoteAddress() << ": "
-               << message << endl;
-          if (message == "over_turn" || message == "call" ||
-              message == "give_up") {
-            lock_guard<mutex> lock(mtx);
-            over_turn = true;
-            if (message == "call") {
-              player_chips_value[index] = normal_chips_value;
-            } else if (message == "give_up") {
-              player_give_up[index] = true;
-            }
-            break;
-          } else if (message == "fill") {
-            int chipValue;
-            packet >> chipValue;
-            cout << "receive chip value: " << chipValue << endl;
-            player_chips_value[index] = +chipValue;
-            normal_chips_value += chipValue;
-          } else if (message == "send_id") {
-            cout << "send_id";
-            string new_id = ReceiveID(index);
-            cout << "this players' id is " << endl;
-            cout << new_id << endl;
-            IDs.push_back(new_id);
-            return;
-          }
+          DealWithMessage(packet);
+          cout << "end deal with message for a time, and now over_turn is "
+               << over_turn << endl;
         }
+        if (over_turn)
+          return;
       }
     }
   }
@@ -259,6 +273,7 @@ public:
     string message;
     packet >> message;
     cout << "receive message from self: " << message << endl;
+
     if (message == "over_turn" || message == "call" || message == "give_up") {
       lock_guard<mutex> lock(mtx);
       over_turn = true;
@@ -382,8 +397,26 @@ public:
     SendToAllClients(packet);
   }
 
+  bool IsAllPlayersSame() {
+    int same_count = 0, i = 0;
+    if (should_min_fill == 0) {
+      return false;
+    }
+    while (i < turns_index.size()) {
+      if (!player_give_up[i]) {
+        same_count = player_chips_value[i];
+        continue;
+      }
+      if (same_count != player_chips_value[i]) {
+        return false;
+      }
+    }
+    now_round_base_fill = same_count;
+    return true;
+  }
+
   void RunTurns(function<void(int)> AddNewPublicCardFn,
-                function<void(bool)> SetMyTurn,
+                function<void(bool, int)> SetMyTurn,
                 function<void(int)> setTurnIndex) {
     thread run_turns_thread([&, AddNewPublicCardFn = move(AddNewPublicCardFn),
                              SetMyTurn = move(SetMyTurn),
@@ -397,16 +430,21 @@ public:
       while (round < 3) {
         cout << "round " << round << endl;
 
+        should_min_fill = 0;
+
         if (round != -1)
           for (int i = 0; i < round_open_card_number[round]; i++) {
             SendNewPublicCard();
             cout << "end send new public card" << endl;
             AddNewPublicCardFn(public_card.back());
           }
-
-        for (int i = 0; i < turns_index.size(); i++) {
+        first_fill = false;
+        int i = 0;
+        while (!IsAllPlayersSame()) {
+          over_turn = false;
           if (!player_give_up[turns_index[i]]) {
             turn = turns_index[i];
+            cout << "now turn is " << turn << endl;
 
             Packet packet;
             packet << "now_turn" << i;
@@ -414,9 +452,11 @@ public:
             setTurnIndex(i);
 
             if (turn == clients->size()) {
-
-              SetMyTurn(true);
-              over_turn = false;
+              if (round != -1 || i != 1)
+                SetMyTurn(true, should_min_fill);
+              else {
+                SetMyTurn(false, should_min_fill * 2);
+              }
               cout << "wait for over from player " << IDs[turn] << "(" << turn
                    << ")" << endl;
 
@@ -430,13 +470,18 @@ public:
                    << endl;
             } else {
               Packet packet;
-              packet << "your_turn";
+              packet << "your_turn" << should_min_fill;
               clients->at(turn)->send(packet);
               ReceiveMessageFromAsync(turn);
               cout << "received over" << endl;
             }
           }
+
+          i = (i + 1) % turns_index.size();
         }
+        /* for (int i = 0; i < turns_index.size(); i++) {
+
+        } */
         round++;
       }
       int winner = -1;

@@ -38,7 +38,9 @@ private:
 
   vector<UseButton *> PlayersButs;
 
-  int turn_ID;
+  int turn_ID, should_min_fill = 0, now_fill = 0;
+
+  Text should_fill_text, now_fill_text;
 
 public:
   vector<int> show_cards;
@@ -146,8 +148,9 @@ public:
 
     button_list[0] = new UseButton(window, button_x, button_y, BUTTON_HEIGHT,
                                    "create game room", normal_font);
-    button_list[1] = new UseButton(window, button_x, button_y + 70, BUTTON_HEIGHT,
-                                   "join game room", normal_font);
+    button_list[1] =
+        new UseButton(window, button_x, button_y + 70, BUTTON_HEIGHT,
+                      "join game room", normal_font);
 
     bg_shader.setUniform("init_complete", 1);
     clock.restart();
@@ -232,8 +235,8 @@ public:
     float button_x = WINDOW_WIDTH / 2;
     float button_y = WINDOW_HEIGHT / 3;
     cout << "room owner interface init start" << endl;
-    UseButton *start_button = new UseButton(window, button_x, button_y, BUTTON_HEIGHT,
-                                            "start game", normal_font);
+    UseButton *start_button = new UseButton(
+        window, button_x, button_y, BUTTON_HEIGHT, "start game", normal_font);
     clock.restart();
 
     cout << "room owner interface init complete" << endl;
@@ -346,6 +349,16 @@ public:
     text.setFillColor(Color::Black);
     text.setPosition(10, 10);
 
+    should_fill_text.setFont(normal_font);
+    should_fill_text.setCharacterSize(24);
+    should_fill_text.setFillColor(Color::Black);
+    should_fill_text.setPosition(10, 40);
+
+    now_fill_text.setFont(normal_font);
+    now_fill_text.setCharacterSize(24);
+    now_fill_text.setFillColor(Color::Black);
+    now_fill_text.setPosition(10, 70);
+
     while (true) {
       window.clear(sf::Color::White);
       bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
@@ -361,18 +374,22 @@ public:
         lock_guard<mutex> lock(my_turn_mtx);
         if (my_turn) {
           if (call_button.click()) {
-            packet.clear();
-            packet << "call";
-            send_method(packet);
-            alert->addAlert("Call");
-            my_turn = false;
+            if (should_min_fill != 0) {
+              alert->addAlert("Call");
+              packet.clear();
+              packet << "call";
+              send_method(packet);
+              my_turn = false;
+            } else {
+              alert->addAlert("You are the first one, you can't call");
+            }
           }
           if (fill_button.click()) {
-            packet.clear();
+            /* packet.clear();
             packet << "fill";
-            alert->addAlert("Start fill");
-            send_method(packet);
+            send_method(packet); */
 
+            alert->addAlert("Start fill");
             to_fill = true;
           }
           if (give_up_button.click()) {
@@ -388,22 +405,30 @@ public:
               chips[i]->show();
               chips[i]->hover();
               if (chips[i]->click()) {
+                now_fill += chips_value[i];
                 alert->addAlert("Raise $" + to_string(chips_value[i]) +
                                 " chips");
                 packet.clear();
-                packet << chips[i]->value;
+                packet << "fill" << chips[i]->value;
                 send_method(packet);
+                now_fill_text.setString("now fill: $" + to_string(now_fill));
               }
             }
             back_button.show();
             back_button.hover();
             if (back_button.click()) {
-              to_fill = false;
-              packet.clear();
-              packet << "over_turn";
-              send_method(packet);
-              std::cout << "over_turn" << endl;
-              my_turn = false;
+              if (now_fill >= should_min_fill) {
+                to_fill = false;
+                packet.clear();
+                packet << "over_turn";
+                send_method(packet);
+                std::cout << "over_turn" << endl;
+                my_turn = false;
+                alert->addAlert("Over turn");
+              } else {
+                alert->addAlert("You should fill at least $" +
+                                to_string(should_min_fill));
+              }
             }
           }
         }
@@ -427,6 +452,12 @@ public:
                           move_card_end_angle[i];
             cards[show_cards[i]]->setPos(dx, dy);
             cards[show_cards[i]]->setRotation(angle);
+          } else if (cards[show_cards[i]]->x != move_card_dest[i].x ||
+                     cards[show_cards[i]]->y != move_card_dest[i].y ||
+                     cards[show_cards[i]]->angle != move_card_end_angle[i]) {
+            cards[show_cards[i]]->setPos(move_card_dest[i].x,
+                                         move_card_dest[i].y);
+            cards[show_cards[i]]->setRotation(move_card_end_angle[i]);
           }
           cards[show_cards[i]]->drawCard();
         }
@@ -440,6 +471,8 @@ public:
 
       if (my_turn) {
         window.draw(text);
+        window.draw(should_fill_text);
+        window.draw(now_fill_text);
       }
 
       alert->printAlert();
@@ -465,20 +498,24 @@ public:
                     TransformCardIndexToString(cardIndex));
   };
 
-  void SetMyTurn(bool my_turn_set) {
+  void SetMyTurn(bool my_turn_set, int should_min_fill_set) {
     lock_guard<mutex> lock(my_turn_mtx);
     my_turn = my_turn_set;
     cout << "set my_turn: " << my_turn << endl;
     alert->addAlert("Your turn");
+    should_min_fill = should_min_fill_set;
+    now_fill = 0;
+    should_fill_text.setString("should fill: $" + to_string(should_min_fill));
+    now_fill_text.setString("now fill: $" + to_string(now_fill));
   };
 
   void InputContent(string *content) {
     UseButton *ID_getter, *Confirm_btn;
-    ID_getter = new UseButton(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3, BUTTON_HEIGHT,
-                              "input your ID", normal_font);
+    ID_getter = new UseButton(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3,
+                              BUTTON_HEIGHT, "input your ID", normal_font);
     Confirm_btn =
-        new UseButton(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3 + 75, BUTTON_HEIGHT,
-                      "confirm", normal_font);
+        new UseButton(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3 + 75,
+                      BUTTON_HEIGHT, "confirm", normal_font);
     Event event;
 
     while (true) {
@@ -516,8 +553,9 @@ public:
 
   void AddPlayersBut(string ID) {
     cout << "add player " << ID << endl;
-    PlayersButs.push_back(
-        new UseButton(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 10, BUTTON_HEIGHT, ID, normal_font));
+    PlayersButs.push_back(new UseButton(window, WINDOW_WIDTH / 2,
+                                        WINDOW_HEIGHT / 10, BUTTON_HEIGHT, ID,
+                                        normal_font));
     for (int i = 0; i < PlayersButs.size(); i++) {
       PlayersButs[i]->moveTo(WINDOW_WIDTH / (PlayersButs.size() + 1) * (i + 1),
                              WINDOW_HEIGHT / 5);

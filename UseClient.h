@@ -1,9 +1,9 @@
 #ifndef USE_CLIENT
 #define USE_CLIENT
 
+#include <SFML/Network.hpp>
 #include <functional>
 #include <thread>
-#include <SFML/Network.hpp>
 
 using namespace std;
 using namespace sf;
@@ -67,7 +67,7 @@ public:
 
   void ReceiveMessage(function<void(int, int)> MoveCardFn,
                       function<void(int)> AddNewPublicCardFn,
-                      function<void(bool)> SetMyTurn,
+                      function<void(bool, int)> SetMyTurn,
                       function<void(string)> AddPlayersBut,
                       function<void(int)> SetTurnsIndex) {
     cout << "start receive message from " << room_index << endl;
@@ -107,7 +107,9 @@ public:
           }
           if (message == "your_turn") {
             cout << "it's my turn now" << endl;
-            SetMyTurn(true);
+            int should_min_fill;
+            packet >> should_min_fill;
+            SetMyTurn(true, should_min_fill);
           } else if (message == "now_turn") {
             int now_turn;
             packet >> now_turn;
@@ -143,7 +145,7 @@ public:
               string ID;
               packet >> ID;
               AddPlayersBut(ID);
-              cout << "new ID " << ID << endl; 
+              cout << "new ID " << ID << endl;
               //   IDs.push_back(ID);
             }
           }
@@ -153,7 +155,13 @@ public:
     receive_message.detach();
   }
 
-  void SendPacketToServer(Packet packet) { socket->send(packet); }
+  void SendPacketToServer(Packet packet) {
+    if (socket->send(packet) == Socket::Done) {
+      cout << "send packet to server successfully" << endl;
+    } else {
+      cout << "send packet to server failed" << endl;
+    }
+  }
 
   void setID(string IDset) { ID = IDset; }
 

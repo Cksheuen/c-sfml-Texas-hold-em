@@ -1,7 +1,7 @@
 #ifndef USE_CHIP
 #define USE_CHIP
 
-#define ANIMATION_TIME 0.5
+#define ANIMATION_TIME 0.3
 
 #include <SFML/Graphics.hpp>
 #include <iostream>
@@ -80,6 +80,7 @@ public:
     Vector2i mousePos = Mouse::getPosition(window);
     if (ChipShape.getGlobalBounds().contains(mousePos.x, mousePos.y)) {
       if (!hoverState) {
+        // cout << "set hover" << endl;
         hoverState = true;
         clock.restart();
         shader->shader.setUniform("hover", 1);
@@ -89,9 +90,10 @@ public:
       return true;
     } else {
       if (hoverState) {
+        // cout << "set hover false" << endl;
+        clock.restart();
         shader->shader.setUniform("hover", 0);
         hoverState = false;
-        animation_clock.restart();
         hoverToScaleAnimation = true;
       }
       return false;

@@ -73,10 +73,15 @@ int main() {
                 ui.AddNewPublicCard(new_public_card);
                 cout << "end AddNewPublicCard" << endl;
               },
-              [&ui](bool my_turn) { ui.SetMyTurn(my_turn); },
+              [&ui](bool my_turn, int should_min_fill) {
+                ui.SetMyTurn(my_turn, should_min_fill);
+              },
               [&ui](int turns_id) { ui.setTurnsIndex(turns_id); });
         },
-        [&](Packet packet) { server->ReceiveOwnMessage(packet); });
+        [&](Packet packet) {
+          // server->ReceiveOwnMessage(packet);
+          server->DealWithMessage(packet);
+        });
   } else if (ModeChoose == ServerOrClient::Client) {
     ui.RunProgressBar();
 
@@ -101,12 +106,17 @@ int main() {
           cout << "new public card: " << new_public_card << endl;
           ui.AddNewPublicCard(new_public_card);
         },
-        [&ui](bool my_turn) { ui.SetMyTurn(my_turn); },
+        [&ui](bool my_turn, int should_min_fill) {
+          ui.SetMyTurn(my_turn, should_min_fill);
+        },
         [&ui](string ID) { ui.AddPlayersBut(ID); },
         [&ui](int turns_id) { ui.setTurnsIndex(turns_id); });
 
     ui.GameInterface([] {},
-                     [&](Packet packet) { client.SendPacketToServer(packet); });
+                     [&](Packet packet) {
+                       cout << "client send packet to server" << endl;
+                       client.SendPacketToServer(packet);
+                     });
 
     while (1)
       ;
