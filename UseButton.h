@@ -128,7 +128,7 @@ public:
   }
   void setString(string contentSet) {
     content = contentSet;
-    width = content.length() * 24.;
+    width = content.length() * points;
     ButtonShape.setSize(Vector2f(width, height));
     x = origin_x - width / 2.;
     y = origin_y;

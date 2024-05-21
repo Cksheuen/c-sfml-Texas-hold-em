@@ -68,8 +68,12 @@ public:
   void ReceiveMessage(function<void(int, int)> MoveCardFn,
                       function<void(int)> AddNewPublicCardFn,
                       function<void(bool, int)> SetMyTurn,
-                      function<void(string)> AddPlayersBut,
-                      function<void(int)> SetTurnsIndex) {
+                      function<void(string)> AddPlayersIds,
+                      function<void(int)> SetTurnsIndex,
+                      function<void()> OverRoundFn,
+                      function<void(string, int)> SetWinner,
+                      function<void(int)> SetLose,
+                      function<void()> AddPlayersBut) {
     cout << "start receive message from " << room_index << endl;
     socket = new TcpSocket;
     if (socket->connect("localhost", room_index)) {
@@ -79,79 +83,88 @@ public:
     }
     sendID();
 
-    thread receive_message([&, MoveCardFn = move(MoveCardFn),
-                            AddNewPublicCardFn = move(AddNewPublicCardFn),
-                            SetMyTurn = move(SetMyTurn),
-                            AddPlayersBut = move(AddPlayersBut),
-                            SetTurnsIndex = move(SetTurnsIndex), this]() {
-      while (true) {
-        Packet packet;
-        if (socket->receive(packet) == sf::Socket::Done) {
-          string message;
-          packet >> message;
-          cout << message << endl;
-          Packet packetSendBack;
-          packetSendBack << "received";
-          socket->send(packetSendBack);
-          int OwnCard[2];
-          if (message == "send_card") {
-            packet >> OwnCard[0] >> OwnCard[1];
-            cout << "receive card: " << OwnCard[0] << " " << OwnCard[1] << endl;
-            MoveCardFn(OwnCard[0], OwnCard[1]);
-          }
-          if (message == "public_card") {
-            int new_public_card;
-            packet >> new_public_card;
-            cout << "public_card" << new_public_card << endl;
-            AddNewPublicCardFn(new_public_card);
-          }
-          if (message == "your_turn") {
-            cout << "it's my turn now" << endl;
-            int should_min_fill;
-            packet >> should_min_fill;
-            SetMyTurn(true, should_min_fill);
-          } else if (message == "now_turn") {
-            int now_turn;
-            packet >> now_turn;
-            SetTurnsIndex(now_turn);
-          }
-          if (message == "winner") {
-            int winner;
-            packet >> winner;
-            cout << "winner: " << winner << endl;
-            Alert("You win");
-          }
-          if (message == "lose") {
-            int lose_score;
-            packet >> lose_score;
-            cout << "lose: " << lose_score << endl;
-            Alert("You lose");
-          }
-          if (message == "game_start") {
-            cout << "game start" << endl;
-            Alert("Game Start");
-          }
-          if (message == "join_game_room") {
-            string ID;
-            packet >> ID;
-            cout << "join_game_room: " << ID << endl;
-            Alert(ID + " join the game");
-          }
-          if (message == "turns_index") {
-            int turns_index;
-            packet >> turns_index;
-            cout << "turns_index: " << turns_index << endl;
-            for (int i = 0; i < turns_index; i++) {
-              string ID;
-              packet >> ID;
-              AddPlayersBut(ID);
-              cout << "new ID " << ID << endl;
-              //   IDs.push_back(ID);
+    thread receive_message(
+        [&, MoveCardFn = move(MoveCardFn),
+         AddNewPublicCardFn = move(AddNewPublicCardFn),
+         SetMyTurn = move(SetMyTurn), AddPlayersIds = move(AddPlayersIds),
+         SetTurnsIndex = move(SetTurnsIndex), OverRoundFn = move(OverRoundFn),
+         SetWinner = move(SetWinner), SetLose = move(SetLose),
+         AddPlayersBut = move(AddPlayersBut), this]() {
+          while (true) {
+            Packet packet;
+            if (socket->receive(packet) == sf::Socket::Done) {
+              string message;
+              packet >> message;
+              cout << message << endl;
+              Packet packetSendBack;
+              packetSendBack << "received";
+              socket->send(packetSendBack);
+              int OwnCard[2];
+              if (message == "send_card") {
+                packet >> OwnCard[0] >> OwnCard[1];
+                cout << "receive card: " << OwnCard[0] << " " << OwnCard[1]
+                     << endl;
+                MoveCardFn(OwnCard[0], OwnCard[1]);
+              }
+              if (message == "public_card") {
+                int new_public_card;
+                packet >> new_public_card;
+                cout << "public_card" << new_public_card << endl;
+                AddNewPublicCardFn(new_public_card);
+              }
+              if (message == "your_turn") {
+                cout << "it's my turn now" << endl;
+                int should_min_fill;
+                packet >> should_min_fill;
+                SetMyTurn(true, should_min_fill);
+              } else if (message == "now_turn") {
+                int now_turn;
+                packet >> now_turn;
+                SetTurnsIndex(now_turn);
+              }
+              if (message == "winner") {
+                string winner;
+                int winner_score;
+                packet >> winner >> winner_score;
+                cout << "winner: " << winner << endl;
+                SetWinner(winner, winner_score);
+              }
+              if (message == "lose") {
+                int lose_score;
+                packet >> lose_score;
+                cout << "lose: " << lose_score << endl;
+                SetLose(lose_score);
+              }
+              if (message == "game_start") {
+                cout << "game start" << endl;
+                Alert("Game Start");
+              }
+              if (message == "join_game_room") {
+                string ID;
+                packet >> ID;
+                cout << "join_game_room: " << ID << endl;
+                Alert(ID + " join the game");
+              }
+              if (message == "turns_index") {
+                int turns_index;
+                packet >> turns_index;
+                cout << "turns_index: " << turns_index << endl;
+                for (int i = 0; i < turns_index; i++) {
+                  string ID;
+                  packet >> ID;
+                  AddPlayersIds(ID);
+                  cout << "new ID " << ID << endl;
+                  //   IDs.push_back(ID);
+                }
+                AddPlayersBut();
+              }
+              if (message == "over_round") {
+                cout << "over_round" << endl;
+                OverRoundFn();
+              }
             }
           }
-        }
-      }
-    });
+        });
     receive_message.detach();
   }
 

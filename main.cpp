@@ -57,7 +57,8 @@ int main() {
 
     cout << "Game Start" << endl;
 
-    server->SetPlayBtnsFn([&ui](string ID) { ui.AddPlayersBut(ID); });
+    server->SetAddPlayersId([&ui](string ID) { ui.AddPlayersId(ID); });
+    server->SetAddPlayersBut([&ui] { ui.AddPlayersBut(); });
 
     ui.GameInterface(
         [&] {
@@ -76,7 +77,12 @@ int main() {
               [&ui](bool my_turn, int should_min_fill) {
                 ui.SetMyTurn(my_turn, should_min_fill);
               },
-              [&ui](int turns_id) { ui.setTurnsIndex(turns_id); });
+              [&ui](int turns_id) { ui.setTurnsIndex(turns_id); },
+              [&ui] { ui.OverRound(); },
+              [&ui](string winner, int winner_score) {
+                ui.SetWinner(winner, winner_score);
+              },
+              [&ui](int lose_score) { ui.SetLose(lose_score); });
         },
         [&](Packet packet) {
           // server->ReceiveOwnMessage(packet);
@@ -109,8 +115,14 @@ int main() {
         [&ui](bool my_turn, int should_min_fill) {
           ui.SetMyTurn(my_turn, should_min_fill);
         },
-        [&ui](string ID) { ui.AddPlayersBut(ID); },
-        [&ui](int turns_id) { ui.setTurnsIndex(turns_id); });
+        [&ui](string ID) { ui.AddPlayersId(ID); },
+        [&ui](int turns_id) { ui.setTurnsIndex(turns_id); },
+        [&ui] { ui.OverRound(); },
+        [&ui](string winner, int winner_score) {
+          ui.SetWinner(winner, winner_score);
+        },
+        [&ui](int lose_score) { ui.SetLose(lose_score); },
+        [&ui] { ui.AddPlayersBut(); });
 
     ui.GameInterface([] {},
                      [&](Packet packet) {

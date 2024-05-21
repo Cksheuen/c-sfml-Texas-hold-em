@@ -32,7 +32,7 @@ private:
 
   int WINDOW_WIDTH, WINDOW_HEIGHT;
   int init_complete = 0;
-  bool to_fill = false;
+  bool to_fill = false, to_dec = false;
   TcpSocket *socket = new TcpSocket;
   int join_room_index = -1;
 
@@ -40,7 +40,19 @@ private:
 
   int turn_ID, should_min_fill = 0, now_fill = 0;
 
-  Text should_fill_text, now_fill_text;
+  Text should_fill_text, now_fill_text, winner_text, score_text;
+
+  bool game_over = false;
+
+  vector<string> IDs;
+
+  float points;
+
+  bool card_status_change = false;
+
+  string own_ID;
+
+  int port = 3000;
 
 public:
   vector<int> show_cards;
@@ -48,7 +60,7 @@ public:
 
   UseUI(int widthSet, int heightSet, TcpListener *listenerSet)
       : WINDOW_WIDTH(widthSet), WINDOW_HEIGHT(heightSet),
-        listener(listenerSet) {
+        points(BUTTON_HEIGHT * 0.25), listener(listenerSet) {
     window.create(VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "SFML Game Project");
     bg_shape.setSize(Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT));
     bg_shape.setPosition(0, 0);
@@ -90,6 +102,7 @@ public:
     InsertFn();
     bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
     window.draw(bg_shape, bg_states);
+    alert->printAlert();
     window.display();
   };
   void BasicCoverUI(std::function<void()> InsertFn) {
@@ -210,7 +223,7 @@ public:
       }
 
       if (button_list[0]->click()) {
-        int port = 3000;
+
         while (listener->listen(port) != Socket::Done && port < 4000) {
           port++;
         }
@@ -241,6 +254,18 @@ public:
 
     cout << "room owner interface init complete" << endl;
 
+    Text text, text2;
+    text.setFont(normal_font);
+    text.setCharacterSize(24);
+    text.setFillColor(Color::Black);
+    text.setPosition(10, 10);
+    text2.setFont(normal_font);
+    text2.setCharacterSize(24);
+    text2.setFillColor(Color::Black);
+    text2.setPosition(10, 40);
+
+    text2.setString("this room is running on port " + to_string(port));
+
     while (!*GameStart) {
       // server.ReceiveMessageInWhile();
       window.clear(sf::Color::White);
@@ -258,15 +283,12 @@ public:
       }
       start_button->show();
 
-      Text text;
-      text.setFont(normal_font);
       text.setString("waiting for clients..., now " + to_string(*player_count) +
                      " players");
-      text.setCharacterSize(24);
-      text.setFillColor(Color::Black);
-      text.setPosition(10, 10);
-      window.draw(text);
 
+      window.draw(text);
+      window.draw(text2);
+      alert->printAlert();
       window.display();
     }
     cout << "room owner interface end" << endl;
@@ -325,13 +347,13 @@ public:
   void GameInterface(function<void()> server_init,
                      function<void(Packet)> send_method) {
     Packet packet;
-    int btn_height = WINDOW_HEIGHT / 3 * 2;
+    int btn_height = WINDOW_HEIGHT - BUTTON_HEIGHT - 10;
     UseButton call_button(window, WINDOW_WIDTH / 11 * 2, btn_height,
                           BUTTON_HEIGHT, "call", normal_font);
     UseButton fill_button(window, WINDOW_WIDTH / 11 * 4, btn_height,
                           BUTTON_HEIGHT, "fill", normal_font);
-    UseButton back_button(window, WINDOW_WIDTH / 11 * 6, btn_height,
-                          BUTTON_HEIGHT, "back", normal_font);
+    UseButton dec_button(window, WINDOW_WIDTH / 11 * 6, btn_height,
+                         BUTTON_HEIGHT, "back", normal_font);
     UseButton give_up_button(window, WINDOW_WIDTH / 11 * 8, btn_height,
                              BUTTON_HEIGHT, "give up", normal_font);
     UseButton over_button(window, WINDOW_WIDTH / 11 * 10, btn_height,
@@ -345,17 +367,17 @@ public:
     Text text;
     text.setFont(normal_font);
     text.setString("your turn");
-    text.setCharacterSize(24);
+    text.setCharacterSize(points);
     text.setFillColor(Color::Black);
     text.setPosition(10, 10);
 
     should_fill_text.setFont(normal_font);
-    should_fill_text.setCharacterSize(24);
+    should_fill_text.setCharacterSize(points);
     should_fill_text.setFillColor(Color::Black);
     should_fill_text.setPosition(10, 40);
 
     now_fill_text.setFont(normal_font);
-    now_fill_text.setCharacterSize(24);
+    now_fill_text.setCharacterSize(points);
     now_fill_text.setFillColor(Color::Black);
     now_fill_text.setPosition(10, 70);
 
@@ -364,47 +386,77 @@ public:
       bg_shader.setUniform("time", clock.getElapsedTime().asSeconds());
       window.draw(bg_shape, bg_states);
 
+      if (show_cards.size() != 0) {
+        bool now_card_status_change = false;
+        for (int i = 0; i < show_cards.size(); i++) {
+          if (card_status_change) {
+            if (clock.getElapsedTime().asSeconds() <
+                move_card_start_time[i] + move_card_time[i]) {
+              float time =
+                  clock.getElapsedTime().asSeconds() - move_card_start_time[i];
+              float dx =
+                  smoothstep(0, move_card_time[i], time) * move_card_dest[i].x;
+              float dy =
+                  smoothstep(0, move_card_time[i], time) * move_card_dest[i].y;
+              float angle =
+                  smoothstep(0, 1, clock.getElapsedTime().asSeconds()) *
+                  move_card_end_angle[i];
+              cards[show_cards[i]]->setPos(dx, dy);
+              cards[show_cards[i]]->setRotation(angle);
+              now_card_status_change = true;
+            } else if (cards[show_cards[i]]->x != move_card_dest[i].x ||
+                       cards[show_cards[i]]->y != move_card_dest[i].y ||
+                       cards[show_cards[i]]->angle != move_card_end_angle[i]) {
+              cards[show_cards[i]]->setPos(move_card_dest[i].x,
+                                           move_card_dest[i].y);
+              cards[show_cards[i]]->setRotation(move_card_end_angle[i]);
+            }
+          }
+
+          cards[show_cards[i]]->drawCard();
+        }
+        if (now_card_status_change) {
+          card_status_change = true;
+        }
+      }
+
       call_button.hover();
       fill_button.hover();
       give_up_button.hover();
-      back_button.hover();
       over_button.hover();
 
-      {
-        lock_guard<mutex> lock(my_turn_mtx);
-        if (my_turn) {
-          if (call_button.click()) {
-            if (should_min_fill != 0) {
-              alert->addAlert("Call");
-              packet.clear();
-              packet << "call";
-              send_method(packet);
-              my_turn = false;
-            } else {
-              alert->addAlert("You are the first one, you can't call");
-            }
-          }
-          if (fill_button.click()) {
-            /* packet.clear();
-            packet << "fill";
-            send_method(packet); */
-
-            alert->addAlert("Start fill");
-            to_fill = true;
-          }
-          if (give_up_button.click()) {
+      lock_guard<mutex> lock(my_turn_mtx);
+      if (my_turn) {
+        if (call_button.click()) {
+          if (should_min_fill != 0) {
+            alert->addAlert("Call");
             packet.clear();
-            packet << "give_up";
-            alert->addAlert("Give up");
+            packet << "call";
+            now_fill = should_min_fill;
             send_method(packet);
             my_turn = false;
+          } else {
+            alert->addAlert("You are the first one, you can't call");
           }
+        }
+        if (fill_button.click()) {
+          alert->addAlert("Start fill");
+          to_fill = true;
+        }
+        if (give_up_button.click()) {
+          packet.clear();
+          packet << "give_up";
+          alert->addAlert("Give up");
+          send_method(packet);
+          my_turn = false;
+        }
 
-          if (to_fill) {
-            for (int i = 0; i < 8; i++) {
-              chips[i]->show();
-              chips[i]->hover();
-              if (chips[i]->click()) {
+        if (to_fill || to_dec) {
+          for (int i = 0; i < 8; i++) {
+            chips[i]->show();
+            chips[i]->hover();
+            if (chips[i]->click())
+              if (to_fill) {
                 now_fill += chips_value[i];
                 alert->addAlert("Raise $" + to_string(chips_value[i]) +
                                 " chips");
@@ -412,24 +464,40 @@ public:
                 packet << "fill" << chips[i]->value;
                 send_method(packet);
                 now_fill_text.setString("now fill: $" + to_string(now_fill));
+              } else if (to_dec) {
+                if (now_fill >= chips_value[i]) {
+                  now_fill -= chips_value[i];
+                  alert->addAlert("Decrease $" + to_string(chips_value[i]) +
+                                  " chips");
+                  packet.clear();
+                  packet << "fill" << -chips[i]->value;
+                  send_method(packet);
+                  now_fill_text.setString("now fill: $" + to_string(now_fill));
+                } else {
+                  alert->addAlert("You don't have enough money to decrease");
+                }
               }
+          }
+          if (over_button.click()) {
+            if (now_fill >= should_min_fill) {
+              to_fill = false;
+              packet.clear();
+              packet << "over_turn";
+              send_method(packet);
+              std::cout << "over_turn" << endl;
+              my_turn = false;
+              alert->addAlert("Over turn");
+            } else {
+              alert->addAlert("You should fill at least $" +
+                              to_string(should_min_fill));
             }
-            back_button.show();
-            back_button.hover();
-            if (back_button.click()) {
-              if (now_fill >= should_min_fill) {
-                to_fill = false;
-                packet.clear();
-                packet << "over_turn";
-                send_method(packet);
-                std::cout << "over_turn" << endl;
-                my_turn = false;
-                alert->addAlert("Over turn");
-              } else {
-                alert->addAlert("You should fill at least $" +
-                                to_string(should_min_fill));
-              }
-            }
+          }
+          dec_button.show();
+          dec_button.hover();
+          if (dec_button.click()) {
+            alert->addAlert("Start decrease");
+            to_fill = false;
+            to_dec = true;
           }
         }
       }
@@ -438,41 +506,20 @@ public:
         PlayersButs[i]->show();
       }
 
-      if (show_cards.size() != 0) {
-        for (int i = 0; i < show_cards.size(); i++) {
-          if (clock.getElapsedTime().asSeconds() <
-              move_card_start_time[i] + move_card_time[i]) {
-            float time =
-                clock.getElapsedTime().asSeconds() - move_card_start_time[i];
-            float dx =
-                smoothstep(0, move_card_time[i], time) * move_card_dest[i].x;
-            float dy =
-                smoothstep(0, move_card_time[i], time) * move_card_dest[i].y;
-            float angle = smoothstep(0, 1, clock.getElapsedTime().asSeconds()) *
-                          move_card_end_angle[i];
-            cards[show_cards[i]]->setPos(dx, dy);
-            cards[show_cards[i]]->setRotation(angle);
-          } else if (cards[show_cards[i]]->x != move_card_dest[i].x ||
-                     cards[show_cards[i]]->y != move_card_dest[i].y ||
-                     cards[show_cards[i]]->angle != move_card_end_angle[i]) {
-            cards[show_cards[i]]->setPos(move_card_dest[i].x,
-                                         move_card_dest[i].y);
-            cards[show_cards[i]]->setRotation(move_card_end_angle[i]);
-          }
-          cards[show_cards[i]]->drawCard();
-        }
-      }
-
       call_button.show();
       fill_button.show();
       give_up_button.show();
-      back_button.show();
       over_button.show();
 
       if (my_turn) {
         window.draw(text);
         window.draw(should_fill_text);
         window.draw(now_fill_text);
+      }
+
+      if (game_over) {
+        window.draw(winner_text);
+        window.draw(score_text);
       }
 
       alert->printAlert();
@@ -488,6 +535,7 @@ public:
     move_card_time.push_back(move_time);
     move_card_dest.push_back(Vector2i(x, y));
     move_card_end_angle.push_back(angle);
+    card_status_change = true;
   };
 
   void AddNewPublicCard(int cardIndex) {
@@ -504,7 +552,6 @@ public:
     cout << "set my_turn: " << my_turn << endl;
     alert->addAlert("Your turn");
     should_min_fill = should_min_fill_set;
-    now_fill = 0;
     should_fill_text.setString("should fill: $" + to_string(should_min_fill));
     now_fill_text.setString("now fill: $" + to_string(now_fill));
   };
@@ -542,6 +589,7 @@ public:
         if (content->empty()) {
           alert->addAlert("ID can't be empty");
         } else {
+          own_ID = *content;
           return;
           ;
         }
@@ -551,25 +599,67 @@ public:
 
   void AlertInterface(string alert) { this->alert->addAlert(alert); }
 
-  void AddPlayersBut(string ID) {
+  void AddPlayersId(string ID) {
     cout << "add player " << ID << endl;
-    PlayersButs.push_back(new UseButton(window, WINDOW_WIDTH / 2,
-                                        WINDOW_HEIGHT / 10, BUTTON_HEIGHT, ID,
-                                        normal_font));
-    for (int i = 0; i < PlayersButs.size(); i++) {
-      PlayersButs[i]->moveTo(WINDOW_WIDTH / (PlayersButs.size() + 1) * (i + 1),
-                             WINDOW_HEIGHT / 5);
-      cout << i << " move to "
-           << WINDOW_WIDTH / (PlayersButs.size() + 1) * (i + 1) << " "
-           << WINDOW_HEIGHT / 5 << endl;
-    }
+    IDs.push_back(ID);
   };
+
+  void AddPlayersBut() {
+    int num = IDs.size();
+    for (int i = 0; i < num; i++) {
+      float x = WINDOW_WIDTH / (num * 2 + 1) * (i * 2 + 1);
+      float y = WINDOW_HEIGHT / 5;
+      PlayersButs.push_back(
+          new UseButton(window, x, y, BUTTON_HEIGHT, IDs[i], normal_font));
+    }
+    PlayersButs.push_back(new UseButton(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT,
+                                        BUTTON_HEIGHT, "test_bug",
+                                        normal_font));
+  }
 
   void setTurnsIndex(int turnsIndexSet) {
     cout << turn_ID << "'s turn" << endl;
     PlayersButs[turn_ID]->setHoverState(false);
     turn_ID = turnsIndexSet;
     PlayersButs[turn_ID]->setHoverState(true);
+  }
+
+  void OverRound() {
+    alert->addAlert("Over round");
+    now_fill = 0;
+    my_turn = false;
+  }
+
+  void SetWinner(string winner, int win_score) {
+    cout << " set winner winner is " << winner << " win score: " << win_score
+         << endl;
+    winner_text.setFont(normal_font);
+    winner_text.setCharacterSize(24);
+    winner_text.setFillColor(Color::Black);
+    string content;
+    if (winner == own_ID) {
+      content = "You win, score: " + to_string(win_score);
+      game_over = true;
+    } else {
+      content = "Winner is " + winner + " win score: " + to_string(win_score);
+    }
+
+    winner_text.setString(content);
+    winner_text.setPosition(WINDOW_WIDTH / 2 -
+                                winner_text.getLocalBounds().width / 2,
+                            WINDOW_HEIGHT / 3);
+  }
+
+  void SetLose(int lose_score) {
+    score_text.setFont(normal_font);
+    score_text.setCharacterSize(24);
+    score_text.setFillColor(Color::Black);
+    string content = "You lose, score: " + to_string(lose_score);
+    score_text.setString(content);
+    score_text.setPosition(WINDOW_WIDTH / 2 -
+                               -score_text.getLocalBounds().width / 2,
+                           WINDOW_HEIGHT / 3 + 50);
+    game_over = true;
   }
 };
 
