@@ -6,6 +6,10 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
 
+#ifndef USE_SHADER
+#include "UseShader.h"
+#endif
+
 using namespace std;
 using namespace sf;
 
