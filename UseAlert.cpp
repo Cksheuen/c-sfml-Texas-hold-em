@@ -24,13 +24,28 @@ void UseAlert::addAlert(string alert) {
   text.setFillColor(Color::Red);
   text.setPosition(width / 2 - alert.length() * width / 100, height / 8);
 
-  alertList.push_back(text);
-  alertTime.push_back(ANIMATION_TIME + clock.getElapsedTime().asSeconds());
+  if (alertTime[alertList.size() - 1] - clock.getElapsedTime().asSeconds() >=
+      ANIMATION_TIME / 2) {
+    alertList.push_back(text);
+    alertTime.push_back(ANIMATION_TIME + clock.getElapsedTime().asSeconds());
+  } else
+    waitingAlertList.push_back(text);
 }
 
 void UseAlert::printAlert() {
   int i = 0;
 
+  while (i < waitingAlertList.size()) {
+    if (alertTime[alertList.size() - 1] - clock.getElapsedTime().asSeconds() >=
+        ANIMATION_TIME / 2) {
+      alertList.push_back(waitingAlertList[i]);
+      alertTime.push_back(ANIMATION_TIME + clock.getElapsedTime().asSeconds());
+      waitingAlertList.erase(waitingAlertList.begin() + i);
+    } else
+      i++;
+  }
+
+  i = 0;
   while (i < alertList.size()) {
     if (alertTime[i] < clock.getElapsedTime().asSeconds()) {
       alertList.erase(alertList.begin() + i);

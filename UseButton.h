@@ -31,9 +31,8 @@ public:
   UseButton(RenderWindow &windowSet, float xSet, float ySet, float heightSet,
             string contentSet, Font fontSet)
       : height(heightSet), points(height * .25),
-        width(contentSet.length() * points), window(windowSet),
-         origin_x(xSet), origin_y(ySet),
-        content(contentSet), font(fontSet) {
+        width(contentSet.length() * points), window(windowSet), origin_x(xSet),
+        origin_y(ySet), content(contentSet), font(fontSet) {
     cout << "Button Created: " << content << endl;
     width = contentSet.length() * points;
     ButtonShape.setSize(Vector2f(width, height));
@@ -63,6 +62,12 @@ public:
 
     start_time = animation_clock.getElapsedTime().asSeconds();
   }
+  
+  void clearTime() {
+    start_time = animation_clock.getElapsedTime().asSeconds();
+    first_show = true;
+  }
+
   void moveTo(float xSet, float ySet) {
     origin_x = xSet;
     origin_y = ySet;

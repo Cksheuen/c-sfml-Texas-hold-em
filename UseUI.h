@@ -8,18 +8,37 @@ class UseChip;
 class UseCard;
 class UseButton;
 
-#include <functional>
 #include <SFML/Graphics.hpp>
 #include <SFML/Network.hpp>
+#include <functional>
 #include <mutex>
-#include <thread>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace std;
 using namespace sf;
 
 #define BUTTON_HEIGHT WINDOW_HEIGHT / 5
+
+#define INPUT_ID_HELP 0
+#define GAME_MENU_HELP 1
+#define ROOM_OWNER_HELP 2
+#define CHOOSE_ROOM_HELP 3
+#define GAME_HELP 4
+#define RESTART_HELP 5
+
+#define INPUT_ID_HELP_CONTENT                                                  \
+  "Please input your ID in the box below\n, and click the button to confirm."
+#define GAME_MENU_HELP_CONTENT "Please choose to be a server or a client."
+#define ROOM_OWNER_HELP_CONTENT                                                \
+  "Please wait for other players to join the room."
+#define CHOOSE_ROOM_HELP_CONTENT                                               \
+  "Please choose a room(based on the port) to join."
+#define GAME_HELP_CONTENT "Please wait for your turn."
+#define RESTART_HELP_CONTENT                                                   \
+  "Please wait for other players to restart the game,\nthe box rounded by "    \
+  "line is ready to restart."
 
 enum ServerOrClient { Server, Client };
 
@@ -37,6 +56,13 @@ private:
   UseChip *chips[8];
 
   UseAlert *alert;
+
+  UseButton *help_button[6], *call_for_help_button;
+  const string help_button_text[6] = {
+      INPUT_ID_HELP_CONTENT,    GAME_MENU_HELP_CONTENT, ROOM_OWNER_HELP_CONTENT,
+      CHOOSE_ROOM_HELP_CONTENT, GAME_HELP_CONTENT,      RESTART_HELP_CONTENT};
+
+  bool help_show = false;
 
   vector<float> move_card_start_time, move_card_end_angle, move_card_time;
   vector<Vector2i> move_card_dest;
@@ -84,6 +110,8 @@ public:
   void InitChips();
 
   ServerOrClient GameMenu();
+
+  void HelpButtonRun(int index);
 
   void RoomOwnerInterface(UseServer &server, int *player_count,
                           bool *GameStart);

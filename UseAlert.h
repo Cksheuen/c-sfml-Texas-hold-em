@@ -12,7 +12,7 @@ using namespace sf;
 class UseAlert {
 private:
   RenderWindow &window;
-  vector<Text> alertList;
+  vector<Text> alertList, waitingAlertList;
   vector<float> alertTime;
   Clock clock;
   int width, height;

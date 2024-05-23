@@ -25,11 +25,15 @@ using namespace std;
 using namespace sf;
 
 UseUI::UseUI(int widthSet, int heightSet, TcpListener *listenerSet)
-    : WINDOW_WIDTH(widthSet), WINDOW_HEIGHT(heightSet),
-      points(heightSet / 20), listener(listenerSet) {
+    : WINDOW_WIDTH(widthSet), WINDOW_HEIGHT(heightSet), points(heightSet / 20),
+      listener(listenerSet) {
   window.create(VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "SFML Game Project");
   bg_shape.setSize(Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT));
   bg_shape.setPosition(0, 0);
+
+  call_for_help_button =
+      new UseButton(window, WINDOW_WIDTH - 20, BUTTON_HEIGHT / 2, BUTTON_HEIGHT,
+                    "help", normal_font);
 
   string VertexShaderPath = "shaders/Bg/bg.vert";
   string FragmentShaderPath = "shaders/Bg/bg.frag";
@@ -115,6 +119,10 @@ void UseUI::InitChips() {
 };
 
 ServerOrClient UseUI::GameMenu() {
+  help_button[GAME_MENU_HELP] = new UseButton(
+      window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3 + 150, BUTTON_HEIGHT * 2,
+      help_button_text[GAME_MENU_HELP], normal_font);
+
   float circle_center_x = WINDOW_WIDTH / 2;
   float circle_center_y = WINDOW_HEIGHT * 1.2;
 
@@ -203,12 +211,34 @@ ServerOrClient UseUI::GameMenu() {
       break;
     }
 
+    HelpButtonRun(GAME_MENU_HELP);
+
     window.display();
   }
 };
 
+void UseUI::HelpButtonRun(int index) {
+  call_for_help_button->hover();
+  call_for_help_button->show();
+
+  if (help_show) {
+    help_button[index]->show();
+  }
+
+  if (call_for_help_button->click()) {
+    help_show = !help_show;
+    if (!help_show)
+      help_button[index]->clearTime();
+    help_button[index]->setHoverState(false);
+  }
+}
+
 void UseUI::RoomOwnerInterface(UseServer &server, int *player_count,
                                bool *GameStart) {
+  help_button[ROOM_OWNER_HELP] = new UseButton(
+      window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3 + 150, BUTTON_HEIGHT * 2,
+      help_button_text[ROOM_OWNER_HELP], normal_font);
+
   std::cout << "start room owner interface" << endl;
   float button_x = WINDOW_WIDTH / 2.0;
   float button_y = WINDOW_HEIGHT / 3.0;
@@ -253,12 +283,18 @@ void UseUI::RoomOwnerInterface(UseServer &server, int *player_count,
 
     window.draw(text);
     window.draw(text2);
+
+    HelpButtonRun(ROOM_OWNER_HELP);
+
     window.display();
   }
   cout << "room owner interface end" << endl;
 };
 int UseUI::ChooseRoomInterface(UseClient client, bool *search_room_complete,
                                vector<int> &room_list) {
+  help_button[CHOOSE_ROOM_HELP] = new UseButton(
+      window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3 + 150, BUTTON_HEIGHT * 2,
+      help_button_text[CHOOSE_ROOM_HELP], normal_font);
 
   float button_x = WINDOW_WIDTH / 2;
   float button_y = WINDOW_HEIGHT / 3;
@@ -304,12 +340,18 @@ int UseUI::ChooseRoomInterface(UseClient client, bool *search_room_complete,
       }
     }
 
+    HelpButtonRun(CHOOSE_ROOM_HELP);
+
     window.display();
   }
 };
 
 bool UseUI::GameInterface(function<void()> server_init,
                           function<void(Packet)> send_method) {
+  help_button[GAME_HELP] = new UseButton(
+      window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3 + 150, BUTTON_HEIGHT * 2,
+      help_button_text[GAME_HELP], normal_font);
+
   Packet packet;
   int btn_height = WINDOW_HEIGHT - BUTTON_HEIGHT - 10;
   UseButton call_button(window, WINDOW_WIDTH / 11 * 2, btn_height,
@@ -515,6 +557,9 @@ bool UseUI::GameInterface(function<void()> server_init,
       }
       restart_game_button.show();
       exit_button.show();
+      HelpButtonRun(RESTART_HELP);
+    } else {
+      HelpButtonRun(GAME_HELP);
     }
 
     alert->printAlert();
@@ -552,6 +597,9 @@ void UseUI::SetMyTurn(bool my_turn_set, int should_min_fill_set) {
 
 void UseUI::InputContent(string *content) {
   UseButton *ID_getter, *Confirm_btn;
+  help_button[INPUT_ID_HELP] = new UseButton(
+      window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3 + 150, BUTTON_HEIGHT * 2,
+      help_button_text[INPUT_ID_HELP], normal_font);
   ID_getter = new UseButton(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3,
                             BUTTON_HEIGHT, "input your ID", normal_font);
   Confirm_btn = new UseButton(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3 + 75,
@@ -577,6 +625,8 @@ void UseUI::InputContent(string *content) {
       Confirm_btn->show();
 
       ID_getter->show();
+
+      HelpButtonRun(INPUT_ID_HELP);
     });
     if (Confirm_btn->click()) {
       if (content->empty()) {
